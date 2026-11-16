@@ -13,8 +13,8 @@
     luggage:{atlas:'gridInterior',sprite:3,w:1,d:1,h:1},
     wallClock:{atlas:'gridInterior',sprite:4,w:1,d:0,h:1,mount:'back-wall'},
     wallLamp:{atlas:'gridInterior',sprite:5,w:1,d:0,h:1,mount:'back-wall'},
-    repairTable:{atlas:'prefab',sprite:5,w:2,d:2,h:2,completedFlag:'helpedNagi',completedSprite:6,focus:[.5,.3]},
-    pasteTable:{atlas:'prefab',sprite:7,w:2,d:2,h:2,focus:[.35,.45]},
+    repairTable:{atlas:'worktable',sprite:0,w:2,d:2,h:2,completedFlag:'helpedNagi',completedSprite:1,focus:[.43,.43]},
+    pasteTable:{atlas:'worktable',sprite:2,w:2,d:2,h:2,focus:[.35,.48]},
     notesTable:{atlas:'prefab',sprite:8,w:2,d:1,h:1,focus:[.5,.5]},
     paperShelf:{atlas:'gridInterior',sprite:6,w:2,d:1,h:2},
     dryingRack:{atlas:'gridInterior',sprite:7,w:3,d:1,h:2},
@@ -49,7 +49,7 @@
     const prop={...def,id,kind,grid,x:x+Math.floor(def.w/2),y:y+(def.mount?def.h-1:def.d-1)};
     map.props.push(prop);return prop;
   }
-  // One scale for both axes; floor objects rest on their cell baseline.
+  // Import-time fitting only. Gameplay reads prepared sheets at native size.
   function fitArt(width,height,sourceWidth,sourceHeight,mount=false){
     const scale=Math.min(width/sourceWidth,height/sourceHeight),w=sourceWidth*scale,h=sourceHeight*scale;
     return {x:(width-w)/2,y:mount?(height-h)/2:height-h,w,h};

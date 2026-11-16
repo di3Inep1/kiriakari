@@ -198,9 +198,18 @@ test('furniture placement rejects fractional origins and overlapping boxes',()=>
 });
 test('interior art uses only grid-designed atlases and preserves source proportions',()=>{
   const F=require('../furniture.js');
-  for(const zone of ['station-office','town-workshop'])for(const p of M.maps[zone].props)assert.ok(['prefab','decor','gridInterior'].includes(p.atlas),p.id+' must not reuse legacy furniture');
+  for(const zone of ['station-office','town-workshop'])for(const p of M.maps[zone].props)assert.ok(['prefab','decor','gridInterior','worktable'].includes(p.atlas),p.id+' must not reuse legacy furniture');
   for(const [w,h,sw,sh,mount] of [[32,64,173,351,false],[96,64,388,245,false],[64,32,301,177,false],[32,32,217,271,true]]){
     const r=F.fitArt(w,h,sw,sh,mount);assert.ok(Math.abs(r.w/r.h-sw/sh)<1e-10,'Uniform scaling preserves circles and joinery');assert.ok(r.w<=w+1e-10&&r.h<=h+1e-10);assert.ok(r.x>=0&&r.y>=0);if(!mount)assert.equal(r.y+r.h,h);
   }
   assert.equal(F.catalog.lampCabinet.completedFlag,'lampFound');assert.equal(F.catalog.lampCabinet.completedSprite,1);
+});
+test('native interior sheets contain fixed complete sprite rectangles at both display sizes',()=>{
+  const art=require('../interior-art.js'),F=require('../furniture.js'),fs=require('node:fs'),path=require('node:path');
+  assert.deepEqual(art.sizes,[32,48]);
+  for(const [kind,def] of Object.entries(F.catalog)){
+    const frames=art.sprites[kind];assert.equal(frames.length,Number.isInteger(def.completedSprite)?2:1);
+    for(const f of frames){assert.equal(f.w,def.w);assert.equal(f.h,def.h);assert.ok(f.w<=art.cell&&f.h<=art.cell);assert.ok(f.col<art.columns&&f.row<art.rows);}
+  }
+  for(const tile of art.sizes){const png=fs.readFileSync(path.join(__dirname,'../assets/interior-native-'+tile+'.png'));assert.equal(png.readUInt32BE(16),art.columns*art.cell*tile);assert.equal(png.readUInt32BE(20),art.rows*art.cell*tile);assert.equal(png[25],6);}
 });

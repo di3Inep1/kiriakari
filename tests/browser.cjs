@@ -80,11 +80,13 @@ async function main() {
   };
   const echo = async () => { if (!(await saved()).flags.lantern) throw new Error('No lantern'); if ((await saved()).phase !== 'echo') await click('#phase-button'); };
   const assertFurnitureGrid=async()=>{
-    const entries=await evaluate(`(()=>{const v=KiriRenderer.view,m=KiriMaps.maps[v.zone];return m.props.filter(p=>p.grid).map(p=>{const node=document.querySelector('[data-prop="'+p.id+'"]'),g=p.grid,r=node.getBoundingClientRect();return {id:p.id,w:r.width,h:r.height,left:parseFloat(node.style.left),top:parseFloat(node.style.top),expected:[g.w*v.tile,g.h*v.tile,Math.round((g.x-v.x)*v.tile),Math.round((g.top-v.y)*v.tile)]};});})()`);
-    assert.ok(entries.length>0);for(const e of entries)assert.deepEqual([e.w,e.h,e.left,e.top],e.expected,'Visible sprite stays inside its defined tile rectangle: '+e.id);
+    const entries=await evaluate(`(()=>{const v=KiriRenderer.view,m=KiriMaps.maps[v.zone];return m.props.filter(p=>p.grid).map(p=>{const node=document.querySelector('[data-prop="'+p.id+'"]'),g=p.grid,r=node.getBoundingClientRect();return {id:p.id,w:r.width,h:r.height,nativeWidth:node.width,nativeHeight:node.height,rendering:getComputedStyle(node).imageRendering,left:parseFloat(node.style.left),top:parseFloat(node.style.top),expected:[g.w*v.tile,g.h*v.tile,Math.round((g.x-v.x)*v.tile),Math.round((g.top-v.y)*v.tile)]};});})()`);
+    assert.ok(entries.length>0);for(const e of entries){assert.deepEqual([e.w,e.h,e.left,e.top],e.expected,'Visible sprite stays inside its defined tile rectangle: '+e.id);assert.deepEqual([e.nativeWidth,e.nativeHeight],[e.w,e.h],'Gameplay uses native pixels without CSS scaling: '+e.id);assert.equal(e.rendering,'pixelated');}
+    const blits=await evaluate('window.__gridBlits');assert.ok(blits.length>0);for(const b of blits){assert.ok(b.native,'Gameplay must read a prepared pixel sheet');assert.deepEqual(b.source,b.destination,'Gameplay drawImage must copy pixels 1:1 without resizing');}
   };
   const travel=async(id,zone)=>{await click('#object-'+id);await waitFor(`document.getElementById('world').dataset.zone===${JSON.stringify(zone)}`);await pause(100);if(['station-office','town-workshop'].includes(zone))await assertFurnitureGrid();};
   await send('Runtime.enable'); await send('Log.enable'); await send('Page.enable');
+  await send('Page.addScriptToEvaluateOnNewDocument',{source:`window.__gridBlits=[];const originalDrawImage=CanvasRenderingContext2D.prototype.drawImage;CanvasRenderingContext2D.prototype.drawImage=function(image,...args){if(this.canvas.classList.contains('grid-furniture'))window.__gridBlits.push({native:!!image.src?.includes('interior-native-'),source:[args[2],args[3]],destination:[args[6],args[7]]});return originalDrawImage.call(this,image,...args);};`});
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 960, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: base });
   await waitFor("!!window.KiriCore && !!window.KiriData && document.getElementById('new-game')");
@@ -108,7 +110,8 @@ async function main() {
         await screenshot(file.replace('.png','-grid.png'));await evaluate("document.getElementById('qa-grid').remove()");
       }
     }
-    assert.deepEqual(errors,[]);console.log('Interior floors captured; no browser errors');await send('Browser.close');return;
+    await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await waitFor('KiriRenderer.view.tile===32');await pause(300);await assertFurnitureGrid();await screenshot('preview-workshop-mobile.png');
+    assert.deepEqual(errors,[]);console.log('Interior floors captured; native 48px desktop and 32px mobile frames verified; no browser errors');await send('Browser.close');return;
   }
   assert.equal(await evaluate("document.getElementById('continue-game').disabled"), true);
   await click('#help-title'); await click('#setting-text'); await click('#modal-close');

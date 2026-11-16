@@ -1,5 +1,7 @@
 # 室内旧家具重绘
 
+当前运行时已改为读取事先准备好的固定像素图集，不再自动裁切缩放；见 [最新显示与工作台修正记录](NATIVE-INTERIOR-ART.md)。本文保留旧家具重绘原图及提示词。
+
 2026-11-16。两间室内已移除旧的 exploration / interior / compact / world 家具引用，全部使用按格子设计的 prefab、decor、gridInterior 三套图集。旧 PNG 作为历史素材保留，不再被室内家具使用。
 
 ## 新图集
