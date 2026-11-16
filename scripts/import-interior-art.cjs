@@ -8,7 +8,9 @@ const sources={
   prefab:{file:'grid-furniture.png',cols:4,rows:3},
   decor:{file:'grid-decor.png',cols:4,rows:3},
   gridInterior:{file:'grid-interior-redrawn.png',cols:5,rows:2},
-  worktable:{file:'grid-worktables-v2.png',cols:3,rows:1}
+  worktable:{file:'grid-worktables-v2.png',cols:3,rows:1},
+  balanced:{file:'grid-furniture-balanced.png',cols:4,rows:2},
+  balancedCounter:{file:'grid-counter-props-balanced.png',rects:[{x:0,y:0,w:900,h:724},{x:900,y:0,w:600,h:724},{x:1533,y:0,w:600,h:724}]}
 };
 const crcTable=Array.from({length:256},(_,n)=>{for(let i=0;i<8;i++)n=(n&1)?0xedb88320^(n>>>1):n>>>1;return n>>>0;});
 function crc32(buf){let n=0xffffffff;for(const b of buf)n=crcTable[(n^b)&255]^(n>>>8);return(n^0xffffffff)>>>0;}
@@ -35,6 +37,7 @@ function decode(file){
 }
 for(const source of Object.values(sources))Object.assign(source,decode(path.join(root,'assets',source.file)));
 function frame(source,sprite){
+  if(source.rects){const r=source.rects[sprite];return {x:r.x+4,y:r.y+4,w:r.w-8,h:r.h-8};}
   const sw=source.width/source.cols,sh=source.height/source.rows;
   return {x:Math.round(sprite%source.cols*sw)+4,y:Math.round(Math.floor(sprite/source.cols)*sh)+4,w:Math.round(sw)-8,h:Math.round(sh)-8};
 }
@@ -62,7 +65,7 @@ for(const tile of manifest.sizes){
   for(const {entry,source,sprite,crop,mount} of jobs){
     const f=frame(source,sprite),fit=F.fitArt(entry.w*tile,entry.h*tile,crop.w,crop.h,mount);
     // Uniform scale and integer placement are decided ONCE, during import.
-    const dw=Math.round(fit.w),dh=Math.round(fit.h),ox=entry.col*manifest.cell*tile+Math.round(fit.x),oy=entry.row*manifest.cell*tile+Math.round(fit.y);
+    const dw=Math.round(fit.w),dh=Math.round(fit.h),ox=entry.col*manifest.cell*tile+Math.floor((entry.w*tile-dw)/2),oy=entry.row*manifest.cell*tile+(mount?Math.floor((entry.h*tile-dh)/2):entry.h*tile-dh);
     for(let y=0;y<dh;y++)for(let x=0;x<dw;x++){
       const sx=f.x+crop.x+Math.min(crop.w-1,Math.floor((x+.5)*crop.w/dw)),sy=f.y+crop.y+Math.min(crop.h-1,Math.floor((y+.5)*crop.h/dh));
       const from=(sy*source.width+sx)*4,to=((oy+y)*width+ox+x)*4;

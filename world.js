@@ -67,7 +67,10 @@
     }
     timberCache.set(size,unit);return unit;
   }
-  function groundMaterial(map,index){return ['station-office','town-workshop'].includes(map.id)&&map.materials[index]==='wood'?'timber':map.materials[index];}
+  function groundMaterial(map,index){
+    if(['station-office','town-workshop'].includes(map.id)){if(map.tiles[index]===31)return 'interior-exit';if(map.materials[index]==='wood')return 'timber';}
+    return map.materials[index];
+  }
   function drawTatami(pen,map,size,originX=0,originY=0){
     if(!map.tatami.length||!tatamiImage.complete||!tatamiImage.naturalWidth)return;
     if(!tatamiBounds){
@@ -80,6 +83,14 @@
     const b=tatamiBounds;map.tatami.forEach(mat=>pen.drawImage(tatamiImage,b.x,b.y,b.w,b.h,mat.x*size-originX,mat.y*size-originY,mat.width*size,mat.height*size));
   }
   function texture(pen, tile, x, y, size, material, originX=0,originY=0) {
+    if(material==='interior-exit'){
+      // Continue the room floor through a cutaway doorway, without the old black-backed tile.
+      texture(pen,4,x,y,size,'timber',originX,originY);
+      const post=Math.max(1,Math.round(size/12)),sill=Math.max(2,Math.round(size/12));
+      pen.fillStyle='#73563b';pen.fillRect(x,y,post,size);pen.fillRect(x+size-post,y,post,size);
+      pen.fillStyle='#a28660';pen.fillRect(x+post,y+size-sill,size-post*2,sill);
+      return;
+    }
     if((material==='stone'&&stoneGrain.complete&&stoneGrain.naturalWidth)||(material==='timber'&&woodGrain.complete&&woodGrain.naturalWidth)) {
       let patterns=contextPatterns.get(pen);if(!patterns) {patterns=new Map();contextPatterns.set(pen,patterns);}
       const key=material+':'+size;

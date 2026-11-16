@@ -11,6 +11,7 @@ const ROOT = path.resolve(__dirname, '..');
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 let chrome, ws, server;
 const errors = [], results = [];
+const mobileControlsOnly=process.argv.includes('--mobile-controls-only'),mobilePrompts=[];
 async function main() {
   server = createServer(); await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -52,6 +53,11 @@ async function main() {
     // Programmatic click is a real UI activation; movement and all game rules still run.
     await evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
   };
+  const tap=async selector=>{
+    await evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'nearest'})`);
+    const p=await evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+    await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[p]});await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await pause(150);
+  };
   const screenshot = async (name,clip) => {
     await evaluate('document.fonts.ready');
     await waitFor('KiriRenderer.assetsReady()');
@@ -62,6 +68,7 @@ async function main() {
   const drain = async (choice = 0) => {
     for (let i = 0; i < 60; i++) {
       if (await evaluate("document.getElementById('dialogue').hidden")) return;
+      if(mobileControlsOnly){await evaluate("document.getElementById('dialogue-skip').click()");const text=await evaluate("document.getElementById('dialogue-text').textContent");mobilePrompts.push(text);assert.equal(/按 Q|使用 WASD/.test(text),false,'Mobile dialogue names touch controls');}
       const count = await evaluate("document.querySelectorAll('#dialogue-choices button').length");
       if (count) await click(`#dialogue-choices button:nth-child(${choice + 1})`);
       else { await evaluate("document.getElementById('dialogue-next').click()"); await pause(25); }
@@ -83,11 +90,13 @@ async function main() {
     const entries=await evaluate(`(()=>{const v=KiriRenderer.view,m=KiriMaps.maps[v.zone];return m.props.filter(p=>p.grid).map(p=>{const node=document.querySelector('[data-prop="'+p.id+'"]'),g=p.grid,r=node.getBoundingClientRect();return {id:p.id,w:r.width,h:r.height,nativeWidth:node.width,nativeHeight:node.height,rendering:getComputedStyle(node).imageRendering,left:parseFloat(node.style.left),top:parseFloat(node.style.top),expected:[g.w*v.tile,g.h*v.tile,Math.round((g.x-v.x)*v.tile),Math.round((g.top-v.y)*v.tile)]};});})()`);
     assert.ok(entries.length>0);for(const e of entries){assert.deepEqual([e.w,e.h,e.left,e.top],e.expected,'Visible sprite stays inside its defined tile rectangle: '+e.id);assert.deepEqual([e.nativeWidth,e.nativeHeight],[e.w,e.h],'Gameplay uses native pixels without CSS scaling: '+e.id);assert.equal(e.rendering,'pixelated');}
     const blits=await evaluate('window.__gridBlits');assert.ok(blits.length>0);for(const b of blits){assert.ok(b.native,'Gameplay must read a prepared pixel sheet');assert.deepEqual(b.source,b.destination,'Gameplay drawImage must copy pixels 1:1 without resizing');}
+    const doorway=await evaluate(`(()=>{const v=KiriRenderer.view,m=KiriMaps.maps[v.zone],c=document.getElementById('tile-map'),p=c.getContext('2d'),ratio=c.width/v.width,out=[];m.tiles.forEach((tile,i)=>{if(tile!==31)return;for(const dy of [.2,.5,.8]){const x=Math.round((i%m.w+.5-v.x)*v.tile*ratio),y=Math.round((Math.floor(i/m.w)+dy-v.y)*v.tile*ratio);out.push([...p.getImageData(x,y,1,1).data].slice(0,3).reduce((a,b)=>a+b,0));}});return out;})()`);assert.ok(doorway.length>0);for(const light of doorway)assert.ok(light>80,'Door threshold continues the timber floor without a black void strip');
   };
   const travel=async(id,zone)=>{await click('#object-'+id);await waitFor(`document.getElementById('world').dataset.zone===${JSON.stringify(zone)}`);await pause(100);if(['station-office','town-workshop'].includes(zone))await assertFurnitureGrid();};
   await send('Runtime.enable'); await send('Log.enable'); await send('Page.enable');
   await send('Page.addScriptToEvaluateOnNewDocument',{source:`window.__gridBlits=[];const originalDrawImage=CanvasRenderingContext2D.prototype.drawImage;CanvasRenderingContext2D.prototype.drawImage=function(image,...args){if(this.canvas.classList.contains('grid-furniture'))window.__gridBlits.push({native:!!image.src?.includes('interior-native-'),source:[args[2],args[3]],destination:[args[6],args[7]]});return originalDrawImage.call(this,image,...args);};`});
-  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 960, deviceScaleFactor: 1, mobile: false });
+  await send('Emulation.setDeviceMetricsOverride', mobileControlsOnly?{width:390,height:844,deviceScaleFactor:1,mobile:true}:{ width: 1440, height: 960, deviceScaleFactor: 1, mobile: false });
+  if(mobileControlsOnly)await send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
   await send('Page.navigate', { url: base });
   await waitFor("!!window.KiriCore && !!window.KiriData && document.getElementById('new-game')");
   console.log('Title loaded');
@@ -110,6 +119,7 @@ async function main() {
         await screenshot(file.replace('.png','-grid.png'));await evaluate("document.getElementById('qa-grid').remove()");
       }
     }
+    const desktopPhase=(await saved()).phase;await evaluate("document.getElementById('world').focus()");await send('Input.dispatchKeyEvent',{type:'keyDown',key:'q',code:'KeyQ'});await send('Input.dispatchKeyEvent',{type:'keyUp',key:'q',code:'KeyQ'});assert.notEqual((await saved()).phase,desktopPhase);await click('#phase-button');assert.equal((await saved()).phase,desktopPhase);await pause(4000);
     await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await waitFor('KiriRenderer.view.tile===32');await pause(300);await assertFurnitureGrid();await screenshot('preview-workshop-mobile.png');
     assert.deepEqual(errors,[]);console.log('Interior floors captured; native 48px desktop and 32px mobile frames verified; no browser errors');await send('Browser.close');return;
   }
@@ -119,6 +129,7 @@ async function main() {
   await object('ren');assert.equal((await saved()).flags.renMet,true);
   await travel('station-door','station-office');await object('duty-log');await pause(2800);await screenshot('preview-station-office.png');
   await object('old-lantern');assert.equal((await saved()).flags.lampFound,true);assert.equal(!!(await saved()).flags.lantern,false);
+  if(mobileControlsOnly){assert.equal(await evaluate("document.getElementById('touch-phase').disabled"),true);await tap('#touch-phase');assert.equal((await saved()).phase,'present');}
   await send('Page.reload');await waitFor("!!window.KiriExploration && document.getElementById('continue-game')&&!document.getElementById('continue-game').disabled");await click('#continue-game');
   assert.equal((await saved()).zone,'station-office');assert.equal((await saved()).flags.lampFound,true);assert.equal(!!(await saved()).flags.lantern,false);assert.ok((await saved()).items.includes('guideLamp'));
   await object('lighting-table');assert.equal(!!(await saved()).flags.lantern,false);
@@ -126,6 +137,19 @@ async function main() {
   await object('ren');assert.ok((await saved()).items.includes('lockerKey'));await object('toolbox');assert.ok((await saved()).items.includes('dryMatches'));
   await object('ren',true,1);assert.equal(!!(await saved()).flags.lantern,false);
   await travel('station-door','station-office');await object('lighting-table');assert.equal((await saved()).flags.lantern,true);assert.equal((await saved()).items.includes('dryMatches'),false);
+  if(mobileControlsOnly){
+    assert.ok(mobilePrompts.some(t=>t.includes('轻触「引灯」切换回忆')));
+    assert.equal(await evaluate("document.getElementById('touch-phase').disabled"),false);
+    assert.ok((await evaluate("document.getElementById('objective-text').textContent")).includes('轻触「引灯」'));
+    await tap('#touch-phase');assert.equal((await saved()).phase,'echo');assert.equal(await evaluate("document.getElementById('touch-phase').getAttribute('aria-pressed')"),'true');assert.equal(await evaluate("document.getElementById('touch-phase-label').textContent"),'返回现世');
+    await send('Page.reload');await waitFor("!!window.KiriExploration && !document.getElementById('continue-game').disabled");await click('#continue-game');assert.equal((await saved()).phase,'echo');
+    assert.equal(await evaluate("document.getElementById('touch-phase').disabled"),false);await tap('#touch-phase');assert.equal((await saved()).phase,'present');
+    await click('#journal-button');const journal=await evaluate("document.getElementById('modal-body').textContent");assert.ok(journal.includes('轻触「引灯」'));assert.equal(journal.includes('按 Q'),false);await click('#modal-close');
+    await click('#settings-button');assert.equal(await evaluate("document.querySelector('.help-grid').textContent.includes('Q')"),false);await click('#modal-close');
+    for(const width of [844,320,390]){await send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:true});await pause(250);assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);const buttons=await evaluate("[...document.querySelectorAll('.touch-actions button')].map(b=>{const r=b.getBoundingClientRect();return {w:r.width,h:r.height,left:r.left,right:r.right};})");for(const b of buttons){assert.ok(b.w>=44&&b.h>=44&&b.left>=0&&b.right<=width);}}
+    await evaluate('window.scrollTo(0,0)');await screenshot('preview-mobile-controls.png');
+    assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,results:['Mobile actual lamp acquisition and ignition, touch-specific dialogue and journal, disabled unlit control, real touch phase switches both ways, reload recovery, 320/390/844px touch controls and no overflow'],errors},null,2));await send('Browser.close');return;
+  }
   await travel('office-exit','station');await object('ren', true, 1);
   assert.equal(!!(await saved()).flags.promisedRen, false);
   await object('ren');

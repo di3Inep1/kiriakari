@@ -15,6 +15,25 @@
   const keys = new Set();
   const settings = Object.assign({ sound: false, instantText: false, particles: true }, read(KEYS.settings) || {});
   const motionPreference=window.matchMedia('(prefers-reduced-motion: reduce)');
+  const touchLayout=window.matchMedia('(max-width: 700px), (pointer: coarse)');
+  function controlText(text){
+    if(!touchLayout.matches)return text;
+    return text.replace(/按 Q[ \t]*/g,'轻触「引灯」').replace(/按 M[ \t]*/g,'轻触顶部「地图」')
+      .replace('使用 WASD 或方向键移动，靠近光点后按 E 调查。','使用屏幕方向键移动，靠近光点后轻触「调查」。')
+      .replace('任意时刻也可按 E 显示全文','也可轻触对话中的「显示全文」');
+  }
+  function syncPhaseControls(){
+    if(!state)return;
+    const echo=state.phase==='echo',lit=!!state.flags.lantern;
+    for(const id of ['phase-button','touch-phase']){$(id).disabled=!lit;$(id).setAttribute('aria-pressed',String(echo));}
+    $('phase-name').textContent=echo?'回忆':'现世';
+    $('phase-sub').textContent=lit?(touchLayout.matches?(echo?'轻触返回现世':'轻触照见回忆'):(echo?'旧日之事正在浮现':'在灯火中看见过去')):state.flags.lampFound?'引灯未点亮':'先寻找引灯';
+    $('phase-button').title=touchLayout.matches?'轻触切换现世 / 回忆':'切换现世 / 回忆（Q）';
+    $('touch-phase-label').textContent=lit?(echo?'返回现世':'照见回忆'):'未点亮';
+    $('touch-phase').setAttribute('aria-label',lit?(echo?'收起引灯，返回现世':'使用引灯，照见回忆'):'引灯尚未点亮');
+    $('world').setAttribute('aria-label',touchLayout.matches?'游戏场景。使用屏幕方向键移动，轻触调查；点亮后轻触引灯切换回忆，也可以轻触场景。':'游戏场景。使用方向键或 WASD 移动，E 调查，Q 切换回忆，也可以点击场景。');
+  }
+  touchLayout.addEventListener('change',()=>{syncPhaseControls();if(state&&screen==='play'){renderHUD();updateNearest();}});
   let reducedMotion=motionPreference.matches;
   motionPreference.addEventListener('change',event=>{reducedMotion=event.matches;});
   if (reducedMotion) settings.instantText = true;
@@ -41,7 +60,7 @@
   function toast(message) {
     clearTimeout(toastTimer);
     $('toast-region').replaceChildren();
-    const el = document.createElement('div'); el.className = 'toast'; el.textContent = message;
+    const el = document.createElement('div'); el.className = 'toast'; el.textContent = controlText(message);
     $('toast-region').appendChild(el);
     toastTimer = setTimeout(() => $('toast-region').replaceChildren(), 3900);
   }
@@ -81,9 +100,7 @@
     $('world').classList.toggle('echo', echo);
     $('world-background').style.backgroundPosition = `${zone.atlas[0] * 100}% ${zone.atlas[1] * 50}%`;
     $('zone-name').textContent = zone.name; $('zone-reading').textContent = zone.reading; $('zone-sub').textContent = zone.sub;
-    $('phase-button').disabled = !state.flags.lantern; $('phase-name').textContent = echo ? '回忆' : '现世';
-    $('phase-sub').textContent = state.flags.lantern ? (echo ? '旧日之事正在浮现' : '在灯火中看见过去') : state.flags.lampFound?'引灯未点亮':'先寻找引灯';
-    $('phase-button').setAttribute('aria-pressed', String(echo));
+    syncPhaseControls();
     $('player').classList.toggle('lit', !!state.flags.lantern);
     const container = $('objects'); container.replaceChildren();
     visibleObjects().forEach(obj => {
@@ -129,7 +146,7 @@
     if (target) showClickTarget(target);
   }
   function renderHUD() {
-    const objective = C.objective(state); $('chapter-label').textContent = objective[0]; $('objective-text').textContent = objective[1];
+    const objective = C.objective(state); $('chapter-label').textContent = objective[0]; $('objective-text').textContent = controlText(objective[1]);
     $('memory-count').textContent = state.memories.length;
     $('memory-dots').innerHTML = C.MEMORIES.map(id => `<i class="${state.memories.includes(id) ? 'filled' : ''}"></i>`).join('');
     document.querySelector('.clock-label').innerHTML = state.solved.includes('tower') ? '<i></i> 00:00 <small>等待最后一声钟响</small>' : '<i></i> 23:59 <small>时间停止流动</small>';
@@ -140,7 +157,8 @@
     const distance = obj => Math.abs(obj.x - state.player.x) + Math.abs(obj.y - state.player.y);
     nearest = objects.filter(obj => distance(obj) <= 1).sort((a, b) => distance(a) - distance(b))[0] || null;
     objects.forEach(obj => $(`object-${obj.id}`)?.classList.toggle('near', obj === nearest));
-    $('nearby-hint').innerHTML = nearest ? `<kbd>E</kbd> ${nearest.character !== undefined ? '交谈 · ' : ''}${nearest.name}` : '<kbd>E</kbd> 靠近光点调查';
+    const key=touchLayout.matches?'调查':'E';
+    $('nearby-hint').innerHTML = nearest ? `<kbd>${key}</kbd> ${nearest.character !== undefined ? '交谈 · ' : ''}${nearest.name}` : `<kbd>${key}</kbd> 靠近光点调查`;
   }
   function approach(obj) {
     if (screen !== 'play' || modalKind || !$('dialogue').hidden || transitioning) return;
@@ -245,7 +263,7 @@
     $('speaker-name').textContent = who?.name || '雾中的旧事'; $('speaker-detail').textContent = line.detail || (who ? '灯见祭 · 前夜' : '');
     const portrait = $('dialogue-portrait'); portrait.classList.toggle('narrator', !who);
     if (who) portrait.style.backgroundPosition = `${(who.portrait % 2) * 100}% ${Math.floor(who.portrait / 2) * 100}%`;
-    currentText = line.text || '你想怎么回答？';
+    currentText = controlText(line.text || '你想怎么回答？');
     $('dialogue-text').textContent = '';
     if (settings.instantText) finishTyping();
     else {
@@ -288,7 +306,7 @@
     keys.clear(); clearTarget(); if (state) updatePlayer(false);
     if (!modalKind) modalReturnFocus = document.activeElement;
     modalKind = kind; $('modal-title').textContent = title; $('modal-eyebrow').textContent = eyebrow;
-    $('modal-card').classList.toggle('wide', wide); $('modal-body').innerHTML = html; $('modal').hidden = false;
+    $('modal-card').classList.toggle('wide', wide); $('modal-body').innerHTML = controlText(html); $('modal').hidden = false;
     $('modal-close').focus({ preventScroll: true });
   }
   function closeModal(restoreFocus = true) {
@@ -322,7 +340,7 @@
       html = `<div class="gears">${p.values.map((v, i) => `<button class="gear-button" data-gear="${i}" aria-label="转动${['上', '中', '下'][i]}轮，目前${v === 0 ? 12 : v * 3}点"><span class="gear-clock"><small class="clock-twelve">12</small><i class="gear-hand" style="transform:rotate(${v * 90}deg)"></i></span><span>${['上', '中', '下'][i]}轮 · ${v === 0 ? 12 : v * 3} 点</span><small>同时带动${['中', '下', '上'][i]}轮 ↻</small></button>`).join('')}</div>`;
     }
     const clueKey = { station: 'date', shrine: 'lanternOrder', archive: 'chronology', tower: 'clockMarks' }[id];
-    const clueHtml = state.clues.includes(clueKey) ? D.clues[clueKey].text : '线索尚未记下。暂时离开机关，按 Q 查看回忆，调查附近的文字。你的旅程不会因此中断。';
+    const clueHtml = state.clues.includes(clueKey) ? D.clues[clueKey].text : controlText('线索尚未记下。暂时离开机关，按 Q 查看回忆，调查附近的文字。你的旅程不会因此中断。');
     $('modal-body').innerHTML = `<p class="puzzle-caption">${caption}</p>${html}<p id="puzzle-status" class="puzzle-status" role="status">${p.status || '机关静静地等待着。'}</p><div class="puzzle-clue"><span class="clue-label">手记中的线索</span>${clueHtml}</div>${p.hints ? `<div class="hint-box">${D.hints[id][p.hints - 1]}</div>` : ''}<div class="modal-actions"><div><button id="puzzle-reset" class="subtle-button">重置</button><span style="color:#557173;margin:0 12px">/</span><button id="puzzle-hint" class="subtle-button">${p.hints === 3 ? '已显示完整提示' : '一点提示 ' + (p.hints + 1) + ' / 3'}</button></div><button id="puzzle-check" class="button primary">${id === 'tower' ? '启动钟芯' : '确认'} ⟶</button></div>`;
     $('puzzle-reset').onclick = () => { p.values = id === 'station' ? [0, 0, 0, 0] : id === 'archive' ? ['gate', 'bell', 'letter', 'lantern'] : id === 'tower' ? [0, 0, 0] : []; p.status = '机关已回到最初。'; p.selected = null; renderPuzzle('#puzzle-reset'); };
     $('puzzle-hint').onclick = () => { p.hints = Math.min(3, p.hints + 1); renderPuzzle('#puzzle-hint'); };
@@ -387,7 +405,7 @@
   }
   function openSettings() {
     const hasManual = !!getSave(KEYS.manual);
-    const html = `<div class="body-copy"><p>这是一段可以慢慢走完的旅程。所有谜题都提供三层提示，试错不会失去物品。</p></div><div class="setting-row"><div><b>环境音乐</b><small>原创合成钟声与缓慢的钢琴音色。</small></div><button id="setting-sound">${S.enabled ? '已开启' : '已关闭'}</button></div><div class="setting-row"><div><b>对话直接显示</b><small>关闭逐字浮现；任意时刻也可按 E 显示全文。</small></div><button id="setting-text">${settings.instantText ? '已开启' : '已关闭'}</button></div><div class="setting-row"><div><b>漂浮光点</b><small>减少场景中的环境动画。</small></div><button id="setting-particles">${settings.particles ? '已开启' : '已关闭'}</button></div><div class="help-grid"><div><kbd>WASD / ↑↓←→</kbd> 移动</div><div><kbd>E / Enter</kbd> 调查、继续</div><div><kbd>Q</kbd> 现世 / 回忆</div><div><kbd>J</kbd> 澪的手记</div><div><kbd>M</kbd> 旧地图</div><div><kbd>Esc</kbd> 关闭窗口</div></div><div class="body-copy"><p>点击地面可移动，点击人物或光点会自动走近并调查。手机可使用屏幕方向键。回忆中闪动的细小光点能找回故事片段。</p><p>进度会自动保存在当前浏览器。请用同一个地址和浏览器继续；清理网站数据会删除存档。</p></div>${state && screen === 'play' ? `<div class="modal-actions"><button class="subtle-button" id="load-manual" ${hasManual ? '' : 'disabled'}>读取手动存档</button><button id="save-manual" class="button primary">手动存档 ⟶</button></div>` : ''}`;
+    const html = `<div class="body-copy"><p>这是一段可以慢慢走完的旅程。所有谜题都提供三层提示，试错不会失去物品。</p></div><div class="setting-row"><div><b>环境音乐</b><small>原创合成钟声与缓慢的钢琴音色。</small></div><button id="setting-sound">${S.enabled ? '已开启' : '已关闭'}</button></div><div class="setting-row"><div><b>对话直接显示</b><small>关闭逐字浮现；任意时刻也可按 E 显示全文。</small></div><button id="setting-text">${settings.instantText ? '已开启' : '已关闭'}</button></div><div class="setting-row"><div><b>漂浮光点</b><small>减少场景中的环境动画。</small></div><button id="setting-particles">${settings.particles ? '已开启' : '已关闭'}</button></div>${touchLayout.matches ? '<div class="help-grid"><div><kbd>方向按钮</kbd> 移动</div><div><kbd>调查</kbd> 靠近后交互</div><div><kbd>引灯</kbd> 现世 / 回忆</div><div><kbd>手记</kbd> 查看线索</div><div><kbd>地图</kbd> 前往旧地</div><div><kbd>×</kbd> 关闭窗口</div></div>' : '<div class="help-grid"><div><kbd>WASD / ↑↓←→</kbd> 移动</div><div><kbd>E / Enter</kbd> 调查、继续</div><div><kbd>Q</kbd> 现世 / 回忆</div><div><kbd>J</kbd> 澪的手记</div><div><kbd>M</kbd> 旧地图</div><div><kbd>Esc</kbd> 关闭窗口</div></div>'}<div class="body-copy"><p>点击地面可移动，点击人物或光点会自动走近并调查。手机可使用屏幕方向键。回忆中闪动的细小光点能找回故事片段。</p><p>进度会自动保存在当前浏览器。请用同一个地址和浏览器继续；清理网站数据会删除存档。</p></div>${state && screen === 'play' ? `<div class="modal-actions"><button class="subtle-button" id="load-manual" ${hasManual ? '' : 'disabled'}>读取手动存档</button><button id="save-manual" class="button primary">手动存档 ⟶</button></div>` : ''}`;
     openModal('旅途设置', 'MAKE YOURSELF AT HOME', 'settings', html);
     $('setting-sound').onclick = async () => { await toggleSound(); if (modalKind === 'settings') $('setting-sound').textContent = S.enabled ? '已开启' : '已关闭'; };
     $('setting-text').onclick = () => { settings.instantText = !settings.instantText; write(KEYS.settings, settings); $('setting-text').textContent = settings.instantText ? '已开启' : '已关闭'; };
@@ -458,6 +476,7 @@
   $('modal-close').onclick = () => closeModal(); $('modal').onclick = e => { if (e.target === $('modal')) closeModal(); };
   $('ending-rewind').onclick = rewind; $('ending-home').onclick = goHome;
   $('touch-interact').onclick = () => { updateNearest(); interact(nearest); };
+  $('touch-phase').onclick = togglePhase;
   $('world').addEventListener('pointerdown', e => {
     if (e.target.closest('button') || modalKind || !$('dialogue').hidden || transitioning) return;
     const rect = $('world').getBoundingClientRect();
