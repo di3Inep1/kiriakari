@@ -5,7 +5,7 @@
   let phase=null,phaseAt=-10000,lastTime=0,mix=0,fogCanvas,grain;
   // Anchored to the carrying hand, including the hidden far hand when facing north.
   function pose(facing,walking,time,reduced=false){
-    const offsets=[{x:.30,y:-.25},{x:-.29,y:-.26},{x:.30,y:-.26},{x:-.24,y:-.30}];
+    const offsets=[{x:.25,y:-.28},{x:-.25,y:-.29},{x:.25,y:-.29},{x:-.20,y:-.32}];
     const anchor=offsets[facing]||offsets[0],swing=reduced?0:Math.sin(time*(walking?.012:.002));
     return {x:anchor.x+(walking?swing*.018:0),y:anchor.y+(walking?Math.abs(swing)*.025:0),angle:reduced?0:swing*(walking?8:2),behind:facing===3};
   }
@@ -41,20 +41,20 @@
         const radius=tile*(3.6+i%3),span=width+radius*2;
         const x=((i*width*.31+t*.004*(i%2?1:-1)-view.x*tile*.18)%span+span)%span-radius;
         const y=height*(.18+(i%4)*.24)+Math.sin(t*.00012+i)*tile*.35;
-        radial(fog,x,y,radius,`rgba(217,218,205,${.11*mix})`,'rgba(217,218,205,0)');
+        radial(fog,x,y,radius,`rgba(217,218,205,${.18*mix})`,'rgba(217,218,205,0)');
       }
       for(let i=0;i<3;i++){
         const x=width*(.18+i*.32)+Math.sin(t*.00015+i)*tile*1.5-view.x*tile*.08,y=height*(.28+i*.29);
         fog.save();fog.translate(x,y);fog.scale(2.8,.32);
-        radial(fog,0,0,tile*2.1,`rgba(236,225,201,${.14*mix})`,'rgba(236,225,201,0)');fog.restore();
+        radial(fog,0,0,tile*2.1,`rgba(236,225,201,${.22*mix})`,'rgba(236,225,201,0)');fog.restore();
       }
       if(lit){fog.globalCompositeOperation='destination-out';radial(fog,focus.x,focus.y,tile*2.8,'rgba(0,0,0,.95)','rgba(0,0,0,0)');fog.globalCompositeOperation='source-over';}
       pen.drawImage(fogCanvas,0,0,width,height);
-      pen.globalAlpha=mix*.28;pen.fillStyle=pen.createPattern(noise(),'repeat');pen.fillRect(0,0,width,height);pen.globalAlpha=1;
+      pen.globalAlpha=mix*.42;pen.fillStyle=pen.createPattern(noise(),'repeat');pen.fillRect(0,0,width,height);pen.globalAlpha=1;
     }
     // Peripheral depth: edges recede while the route immediately around Mio stays clear.
-    const edge=pen.createRadialGradient(point.x,point.y-tile*.45,tile*1.1,point.x,point.y-tile*.45,Math.max(width,height)*.73);
-    edge.addColorStop(0,'rgba(15,21,28,0)');edge.addColorStop(.5,`rgba(22,25,33,${.035+mix*.035})`);edge.addColorStop(1,`rgba(18,22,33,${.12+mix*.23})`);pen.fillStyle=edge;pen.fillRect(0,0,width,height);
+    const edge=pen.createRadialGradient(point.x,point.y-tile*.45,tile*1.1,point.x,point.y-tile*.45,Math.max(width*(.73-mix*.14),height*.85));
+    edge.addColorStop(0,'rgba(15,21,28,0)');edge.addColorStop(.5,`rgba(22,25,33,${.035+mix*.055})`);edge.addColorStop(1,`rgba(18,22,33,${.12+mix*.43})`);pen.fillStyle=edge;pen.fillRect(0,0,width,height);
     if(lit){
       pen.save();pen.globalCompositeOperation='screen';
       const breath=reduced?1:1+Math.sin(t*.003)*.035;
