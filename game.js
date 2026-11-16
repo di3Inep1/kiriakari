@@ -113,8 +113,11 @@
     if (walking !== lastWalk) player.classList.toggle('walking', walking);
     lastWalk = walking;
     visibleObjects().forEach(obj => {
-      const el = $(`object-${obj.id}`), position = R.project({x:obj.x+(obj.focusOffset?.x||0),y:obj.y+(obj.focusOffset?.y||0)});
-      if (el) { el.style.left = position.x + 'px'; el.style.top = position.y + 'px'; el.style.zIndex = String(Math.round(obj.y * 5) + (obj.character !== undefined ? 10 : 16)); }
+      const el = $(`object-${obj.id}`), position = R.project(M.focusPoint(state.zone,obj));
+      if (el) {
+        const prop=obj.support&&M.maps[state.zone].props.find(p=>p.id===obj.support),pose=prop&&M.attachmentPose(state.zone,prop);
+        el.style.left=position.x+'px';el.style.top=position.y+'px';el.style.zIndex=String(pose?Math.round(pose.building.frontY*5)+22:Math.round(obj.y*5)+(obj.character!==undefined?10:16));
+      }
     });
     if (target) showClickTarget(target);
   }
@@ -135,7 +138,7 @@
   function approach(obj) {
     if (screen !== 'play' || modalKind || !$('dialogue').hidden || transitioning) return;
     if (!motion.step&&Math.abs(obj.x - state.player.x) + Math.abs(obj.y - state.player.y) <= 1) return interact(obj);
-    const plan = M.approach(state.zone, motion.step?.to||state.player, obj);
+    const plan = M.approach(state.zone, motion.step?.to||state.player, obj,state.solved);
     if (!plan) return toast('这边被挡住了。试着从另一侧靠近。');
     clearTarget(false); route = plan.path; target = plan.point; pendingObject = obj; showClickTarget(target);
     $('world').focus({ preventScroll: true });
@@ -405,7 +408,7 @@
       return `<button class="map-place ${active ? 'active' : ''}" data-zone="${id}" ${!available || active ? 'disabled' : ''}><canvas class="map-art" data-minimap="${id}" aria-hidden="true"></canvas><span class="map-info">${zone.name}<small>${active ? '所在之处' : available ? '前往 ↗' : '雾未散去'}</small></span></button>`;
     }).join('')}</div><p class="map-description">已经打开的道路，可以在地图上直接前往。切换现世与回忆不消耗任何物品。<br>所有场景都可以重访；最后作出选择之前，仍能补全回忆与约定。</p>`, true);
     $('modal-body').querySelectorAll('[data-zone]').forEach(button => { button.onclick = () => changeZone(button.dataset.zone); });
-    $('modal-body').querySelectorAll('[data-minimap]').forEach(canvas => R.thumbnail(canvas.dataset.minimap, canvas));
+    $('modal-body').querySelectorAll('[data-minimap]').forEach(canvas => R.thumbnail(canvas.dataset.minimap, canvas,state.solved));
   }
   function openSettings() {
     const hasManual = !!getSave(KEYS.manual);
@@ -485,7 +488,7 @@
     const rect = $('world').getBoundingClientRect();
     const goal = R.unproject(e.clientX - rect.left, e.clientY - rect.top);
     const from=motion.step?.to||state.player;
-    const path = M.walkable(state.zone, goal.x, goal.y) ? M.findPath(state.zone, from, goal) : M.approach(state.zone, from, goal)?.path;
+    const path = M.walkable(state.zone, goal.x, goal.y,state.solved) ? M.findPath(state.zone, from, goal,state.solved) : M.approach(state.zone, from, goal,state.solved)?.path;
     clearTarget(false);
     if (path?.length) { route = path; target = path.at(-1); showClickTarget(target); }
     $('world').focus({ preventScroll: true });
@@ -562,7 +565,7 @@
         Move.advance(motion,state.player,dt,()=>{
           if(modalKind||!$('dialogue').hidden||transitioning)return null;
           const direction=Move.direction(keys);
-          if(direction){state.player.facing=direction.facing;const next={x:state.player.x+direction.dx,y:state.player.y+direction.dy};return M.walkable(state.zone,next.x,next.y)?next:null;}
+          if(direction){state.player.facing=direction.facing;const next={x:state.player.x+direction.dx,y:state.player.y+direction.dy};return M.walkable(state.zone,next.x,next.y,state.solved)?next:null;}
           if(route.length)return route.shift();
           if(target){const object=pendingObject;clearTarget();if(object)interact(object);save();}
           return null;
@@ -572,7 +575,7 @@
         });
       }
       const visual=Move.visual(motion,state.player),walking=motion.walking&&!modalKind&&$('dialogue').hidden&&!transitioning;
-      R.draw(state.zone, visual, now, state.phase); updatePlayer(walking, visual); paintAtmosphere(now);
+      R.draw(state.zone, visual, now, state.phase,state.solved); updatePlayer(walking, visual); paintAtmosphere(now);
       if(movementSavePending&&!motion.walking){movementSavePending=false;save();}
       state.elapsed += dt; saveTick += dt; if (saveTick >= 12) { saveTick = 0; save(); }
     }

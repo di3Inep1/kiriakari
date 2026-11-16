@@ -6,6 +6,8 @@
   const mountedImage = new Image(); mountedImage.src = 'assets/mounted-props.png';
   const worldProps = new Image(); worldProps.src = 'assets/world-props.png';
   const stoneGrain = new Image(); stoneGrain.src = 'assets/stone-grain.png';
+  const stationKit=new Image();stationKit.src='assets/station-fixtures-v2.png';
+  const craneImage=new Image();craneImage.src='assets/hanging-crane.png';
   const view = { tile: 48, x: 0, y: 0, width: 1, height: 1, zone: 'station' };
   const canvas = document.getElementById('tile-map'), ctx = canvas.getContext('2d');
   const scenery = document.createElement('div'); scenery.id = 'scenery'; scenery.setAttribute('aria-hidden','true');
@@ -77,7 +79,18 @@
     ctx.strokeStyle='rgba(13,30,33,.12)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(fx,fy);
     ctx.lineTo(fx+size*.075,fy+size*.025);ctx.lineTo(fx+size*.12,fy-size*.02);ctx.stroke();
   }
-  function drawScenery(map) {
+  function propFrame(prop,solved=[]){
+    const source=prop.atlas==='world'?worldProps:prop.atlas==='station'?stationKit:prop.atlas==='crane'?craneImage:mountedImage;
+    const columns=prop.atlas==='world'?4:prop.atlas==='crane'?1:2,rows=prop.atlas==='crane'?1:2;
+    const sprite=prop.gate&&solved.includes(prop.gate)?prop.openSprite:prop.sprite;
+    return {source,columns,rows,sprite};
+  }
+  function drawPlatform(pen,map,size,originX=0,originY=0){
+    if(!stationKit.complete||!stationKit.naturalWidth)return;
+    const sw=stationKit.naturalWidth/2,sh=stationKit.naturalHeight/2;
+    map.platformEdges.forEach(edge=>{for(let x=edge.x;x<edge.x+edge.width;x++)pen.drawImage(stationKit,3,sh+3,sw-6,sh-6,x*size-originX,edge.y*size-originY,size,size);});
+  }
+  function drawScenery(map,solved) {
     if(sceneryZone!==map.id) {
       sceneryZone=map.id; scenery.replaceChildren();
       sceneryNodes=map.scenery.map(plant=>{
@@ -93,11 +106,10 @@
       propNodes=map.props.map(prop=>{
         const node=document.createElement('canvas');node.className='scene-prop';node.dataset.prop=prop.id;
         node.width=256;node.height=256;node.style.setProperty('--prop-scale',prop.size);
-        node.style.zIndex=String(Math.round(prop.y*5)+(prop.hanging?12:7));
-        const source=prop.atlas==='world'?worldProps:mountedImage,columns=prop.atlas==='world'?4:2;
-        const paint=()=>{if(!source.naturalWidth)return;const sw=source.naturalWidth/columns,sh=source.naturalHeight/2,pen=node.getContext('2d');pen.imageSmoothingEnabled=false;pen.clearRect(0,0,256,256);pen.drawImage(source,(prop.sprite%columns)*sw+4,Math.floor(prop.sprite/columns)*sh+4,sw-8,sh-8,0,0,256,256);};
-        if(source.complete) paint();else source.addEventListener('load',paint,{once:true});
-        furniture.appendChild(node);return {prop,node};
+        const pose=root.KiriMaps.attachmentPose(map.id,prop);
+        node.style.zIndex=String(pose?Math.round(pose.building.frontY*5)+18:Math.round(prop.y*5)+(prop.hanging?12:7));
+        let thread=null;if(pose){thread=document.createElement('span');thread.className='roof-thread';thread.dataset.attachment=prop.attachment.building;thread.style.zIndex=node.style.zIndex;furniture.appendChild(thread);}
+        furniture.appendChild(node);return {prop,node,thread,painted:null};
       });
     }
     sceneryNodes.forEach(({plant,node})=>{
@@ -105,9 +117,18 @@
       node.hidden=p.x < -margin||p.x>view.width+margin||p.y < -margin||p.y>view.height+margin;
       if(!node.hidden) { node.style.left=p.x+'px';node.style.top=p.y+'px'; }
     });
-    propNodes.forEach(({prop,node})=>{const p=project(prop);node.style.left=p.x+'px';node.style.top=p.y+'px';});
+    propNodes.forEach(item=>{
+      const {prop,node,thread}=item,frame=propFrame(prop,solved),key=prop.atlas+'-'+frame.sprite;
+      if(item.painted!==key&&frame.source.complete&&frame.source.naturalWidth){
+        const {source,columns,rows,sprite}=frame,sw=source.naturalWidth/columns,sh=source.naturalHeight/rows,pen=node.getContext('2d');
+        pen.imageSmoothingEnabled=false;pen.clearRect(0,0,256,256);pen.drawImage(source,(sprite%columns)*sw+4,Math.floor(sprite/columns)*sh+4,sw-8,sh-8,0,0,256,256);item.painted=key;
+      }
+      const pose=root.KiriMaps.attachmentPose(map.id,prop),p=pose?project({x:pose.x-.5,y:pose.bottomY-.92}):project(prop);
+      node.style.left=p.x+'px';node.style.top=p.y+'px';
+      if(thread){const a=project({x:pose.x-.5,y:pose.threadY-.92});thread.style.left=a.x+'px';thread.style.top=a.y+'px';thread.style.height=Math.max(0,(pose.bottomY-prop.size*.5-pose.threadY)*view.tile)+'px';}
+    });
   }
-  function draw(zone, player, time, phase) {
+  function draw(zone, player, time, phase,solved=[]) {
     const map = root.KiriMaps.maps[zone]; view.zone = zone;
     const cols = view.width / view.tile, rows = view.height / view.tile;
     const camera = (p, span, extent) => extent < span ? -(span - extent) / 2 : Math.max(0, Math.min(extent - span, p + .5 - span / 2));
@@ -130,6 +151,7 @@
         if (id === 6 || id === 7) { ctx.fillStyle = `rgba(102,183,206,${.04 + Math.sin(time * .0015 + x * .7 + y * .3) * .035})`; ctx.fillRect(px, py, view.tile, view.tile); }
       }
     }
+    drawPlatform(ctx,map,view.tile,originX,originY);
     ctx.fillStyle = phase === 'echo' ? 'rgba(59,84,123,.19)' : 'rgba(5,22,38,.22)'; ctx.fillRect(0, 0, view.width, view.height);
     map.lights.forEach(({x,y})=>{
       const p = project({ x, y: y - .35 }), radius = view.tile * 1.7;
@@ -138,14 +160,15 @@
       gradient.addColorStop(0, 'rgba(255,194,93,.20)'); gradient.addColorStop(1, 'rgba(255,194,93,0)');
       ctx.fillStyle = gradient; ctx.fillRect(p.x - radius, p.y - radius, radius * 2, radius * 2);
     });
-    drawScenery(map);
+    drawScenery(map,solved);
   }
-  function thumbnail(zone, output) {
+  function thumbnail(zone, output,solved=[]) {
     const map = root.KiriMaps.maps[zone], size = 8;
     output.width = map.w * size; output.height = map.h * size;
     const pen = output.getContext('2d'); pen.imageSmoothingEnabled = false;
     if (!image.complete || !image.naturalWidth) return;
     map.tiles.forEach((tile, i) => texture(pen,tile,i%map.w*size,Math.floor(i/map.w)*size,size,map.materials[i]));
+    drawPlatform(pen,map,size);
     if(foliage.complete&&foliage.naturalWidth) {
       const sw=foliage.naturalWidth/4,sh=foliage.naturalHeight/4;
       map.scenery.forEach(p=>{
@@ -153,7 +176,7 @@
         pen.drawImage(foliage,p.sprite%4*sw,Math.floor(p.sprite/4)*sh,sw,sh,(p.x+.5)*size-extent*.5,(p.y+.92)*size-extent*.96,extent,extent);
       });
     }
-    map.props.forEach(p=>{const source=p.atlas==='world'?worldProps:mountedImage,columns=p.atlas==='world'?4:2;if(!source.complete||!source.naturalWidth)return;const sw=source.naturalWidth/columns,sh=source.naturalHeight/2,extent=p.size*size;pen.drawImage(source,p.sprite%columns*sw+4,Math.floor(p.sprite/columns)*sh+4,sw-8,sh-8,(p.x+.5)*size-extent*.5,(p.y+.92)*size-extent*.985,extent,extent);});
+    map.props.forEach(p=>{const {source,columns,rows,sprite}=propFrame(p,solved);if(!source.complete||!source.naturalWidth)return;const sw=source.naturalWidth/columns,sh=source.naturalHeight/rows,extent=p.size*size,pose=root.KiriMaps.attachmentPose(zone,p),x=pose?pose.x:p.x+.5,y=pose?pose.bottomY:p.y+.92;pen.drawImage(source,sprite%columns*sw+4,Math.floor(sprite/columns)*sh+4,sw-8,sh-8,x*size-extent*.5,y*size-extent*.985,extent,extent);});
   }
-  root.KiriRenderer = { view, resize, draw, project, unproject, thumbnail, assetsReady:()=>[image,foliage,mountedImage,worldProps,stoneGrain].every(i=>i.complete&&i.naturalWidth>0) };
+  root.KiriRenderer = { view, resize, draw, project, unproject, thumbnail, assetsReady:()=>[image,foliage,mountedImage,worldProps,stoneGrain,stationKit,craneImage].every(i=>i.complete&&i.naturalWidth>0) };
 })(globalThis);

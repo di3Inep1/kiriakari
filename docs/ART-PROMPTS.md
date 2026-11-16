@@ -18,6 +18,30 @@
 | `assets/stone-grain.png` | 统一石材颗粒底纹；由地图坐标上的连续砖缝结构取样，避免格子接缝错位 |
 | `assets/mio-walk.png` | 主角行走图集初稿，保留作制作记录 |
 | `assets/mio-walk-v2.png` | 正式四方向行走图集，3 列 × 4 行：左右迈步与站姿，透明背景 |
+| `assets/station-fixtures-v2.png` | 车站关闭 / 打开闸门、站台安全线与轨道止冲挡；2 × 2 透明图集 |
+| `assets/hanging-crane.png` | 单独纸鹤透明图，不含屋檐、木架或地面；挂线由真实建筑锚点连接 |
+
+## 车站与屋檐布局 · 2026-11-16
+
+以下素材通过内置 image_gen 制作，既有 tileset.png 仅作风格参考。正式车站图集额外移除了原始输出的半透明浅色背景，使用 v2 文件，避免地图出现背景方块。
+
+### station-fixtures
+
+```
+Use case: stylized-concept. Asset type: exact 2x2 sprite atlas for a classic 2D top-down rural Japanese railway-station puzzle RPG. Input image STYLE reference only, match muted dark wood, iron, grey-blue pixel art and amber lighting. Four equal square cells, no gutters, no text, no watermarks, transparent PNG background. Top-left cell: CLOSED manual station ticket gate, TWO dark iron posts and a slender horizontal wooden barrier across the middle, small brass lock at center. Whole gate about twice as wide as high, ground contact near bottom90%, no ground tile and NO house door. Top-right: exactly the SAME ticket gate and post positions, OPEN variant, wooden barrier rotated upwards beside one post leaving the middle CLEAR for a person to walk through. Bottom-left: a single full-width HORIZONTAL yellow tactile platform safety strip, top-down, muted ochre yellow with small raised dot texture, thin charcoal edge line, this strip fills the middle ONE QUARTER of the square cell's height and the entire cell WIDTH, transparent above and below, ends must connect seamlessly when repeated left to right. Bottom-right: a railway end-of-track BUFFER STOP, sturdy short dark wooden/iron crossbar with red-white warning tips, correctly looks like the stop at the end of a rail siding, overhead RPG perspective, no floor rectangle or ballast background. Readable small pixel clusters, not an isometric scene. Every sprite entirely within its own equal cell, no background, no fake checkerboard, no captions. It is an atlas of actual game props.
+```
+
+### hanging-crane
+
+```
+Use case: stylized-concept. Asset type: ONE transparent origami-paper-crane sprite for an existing 16-bit top-down Japanese puzzle RPG. Reference image is style reference only. Draw a single small delicate OFF-WHITE paper crane with folded paper wings, subtle pale-grey shading, warm tiny red knot at the top of its back where a thread can attach. Classic crisp readable pixel-art sprite, overhead / slightly front view consistent with the reference. Crane completely isolated, centered, fills central 75 percent of the square canvas with transparent margin. IMPORTANT: NO roof, NO roof tile, NO beam, NO furniture, NO ground tile, NO floor rectangle, NO long string, NO shadow underneath, NO pedestal. Only the paper crane and tiny red attachment knot. The game will draw the hanging thread from a REAL roof in world coordinates. Genuine transparent background, no words, no label, no watermark.
+```
+
+### station-fixtures-v2.png 背景修正
+
+```
+Edit the supplied station sprite atlas. Remove ALL of the white, pale grey and off-white background between and around the four sprites, including the outer frame lines and grid separator. Make every background pixel completely transparent (alpha zero), not translucent white. Keep the dark ticket gates, the yellow tactile strip and buffer-stop sprite unchanged in their current 2x2 cell positions. Preserve the exact 1254x1254 canvas and crisp pixel outlines. Keep the transparent holes inside the open ticket gate and between the buffer's legs completely clear. Keep the full-width tactile strip continuous across its cell. No white backdrop, no grey haze, no fake transparency grid, no floor rectangle, no new shadows. This is background removal only, not a redesign.
+```
 
 ## 主角行走帧 · 2026-11-16
 

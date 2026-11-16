@@ -71,3 +71,4 @@
 .player.has-walk-sheet{height:calc(var(--tile-size)*1.38);width:calc(var(--tile-size)*1.38*var(--walk-ratio));aspect-ratio:auto}
 .player.has-walk-sheet .sprite{background-image:url('assets/mio-walk-v2.png');background-size:300% 400%;top:10%;bottom:-10%;animation:none;transform:none}
 .player.has-walk-sheet.walking .sprite{animation:none;transform:none}
+.roof-thread{position:absolute;width:1px;background:#b45b4a;box-shadow:1px 0 0 #1b202455;transform:translateX(-50%);pointer-events:none}

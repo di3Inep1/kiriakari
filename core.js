@@ -15,7 +15,7 @@
   const ENDINGS = ['departure', 'keeper', 'nameless', 'dawn'];
   const same = (a, b) => Array.isArray(a) && a.length === b.length && a.every((x, i) => x === b[i]);
   function newGame() {
-    return { version: VERSION, zone: 'station', phase: 'present', player: { x: 16, y: 15, facing: 0 }, flags: {}, clues: [], memories: [], solved: [], seen: [], elapsed: 0, started: Date.now(), ending: null };
+    return { version: VERSION, layoutVersion:Maps.LAYOUT_VERSION,zone: 'station', phase: 'present', player: { x: Maps.maps.station.spawn[0], y: Maps.maps.station.spawn[1], facing: 0 }, flags: {}, clues: [], memories: [], solved: [], seen: [], elapsed: 0, started: Date.now(), ending: null };
   }
   function canVisit(state, zone) {
     if (zone === 'station') return true;
@@ -88,10 +88,12 @@
     state.seen = Array.isArray(raw.seen) ? [...new Set(raw.seen.filter(x => typeof x === 'string' && /^[a-z][a-z0-9-]{0,45}$/i.test(x)))].slice(0, 100) : [];
     state.zone = canVisit(state, raw.zone) ? raw.zone : 'station';
     state.phase = raw.phase === 'echo' && state.flags.lantern ? 'echo' : 'present';
-    if (raw.player && state.zone === raw.zone) {
+    const spawn=Maps.maps[state.zone].spawn;state.player={x:spawn[0],y:spawn[1],facing:0};
+    const sameLayout=raw.layoutVersion===Maps.LAYOUT_VERSION||!['station','town'].includes(state.zone);
+    if (raw.player && state.zone === raw.zone && sameLayout) {
       const clamp = (n, low, high, fallback) => Number.isFinite(n) ? Math.max(low, Math.min(high, n)) : fallback;
       const map = Maps.maps[state.zone];
-      const point = Maps.nearestFloor(state.zone, { x: Math.round(clamp(raw.player.x, 0, map.w - 1, map.spawn[0])), y: Math.round(clamp(raw.player.y, 0, map.h - 1, map.spawn[1])) });
+      const point = Maps.nearestFloor(state.zone, { x: Math.round(clamp(raw.player.x, 0, map.w - 1, map.spawn[0])), y: Math.round(clamp(raw.player.y, 0, map.h - 1, map.spawn[1])) },state.solved);
       state.player = { ...point, facing: clamp(Math.floor(raw.player.facing), 0, 3, 0) };
     }
     state.elapsed = Number.isFinite(raw.elapsed) ? Math.max(0, Math.min(raw.elapsed, 31536000)) : 0;

@@ -6,7 +6,7 @@
         { id: 'ren', name: '莲', label: '站务员', x: 65, y: 58, character: 2, action: 'ren' },
         { id: 'timetable', name: '褪色的时刻表', x: 25, y: 43, action: 'date', mark: 'inspect' },
         { id: 'photo', name: '长椅上的合照', x: 34, y: 70, phase: 'echo', action: 'photo', mark: 'memory', support: 'photo-bench', focusOffset: { x: .78, y: -.45 } },
-        { id: 'station-lock', name: '检票闸门', x: 83, y: 53, action: 'puzzle-station', mark: 'puzzle' },
+        { id: 'station-lock', name: '检票闸门', x: 83, y: 53, action: 'puzzle-station', mark: 'puzzle',support:'station-ticket-gate',focusOffset:{x:0,y:-.75} },
         { id: 'to-town', name: '前往灯见街', x: 90, y: 74, action: 'go-town', mark: 'exit' }
       ] },
     town: { name: '灯见街', reading: 'AKARIMI STREET', sub: '每盏灯下，都有人等待。', atlas: [1, 0], spawn: [22, 72], links: ['station', 'shrine', 'archive', 'river'],
@@ -69,8 +69,8 @@
     dawn: { number: 'IV', name: '与你重逢的黎明', en: 'UNTIL WE MEET AT DAWN', color: '#f3cf95', lead: '这一次，你终于叫出了她的名字。', paragraphs: ['「栞。」你把四段回忆写进灯纸。你记得她的等待、愿望、恐惧，也记得她想活下去的真心。你终于不再只把她当作一个救了所有人的传说。', '莲和凪婆婆从街的另一端走来。每一盏写着姓名的灯，都接住了一小片夜色。没有人需要独自留在这里。第十三次钟声响了。', '姐姐握了握你的手。「这一次，不用在原地等我。去看看以后的春天吧。」', '七年后第一次日出，照进真正的雾灯车站。澪把红丝带系在行李上，走向正在醒来的小镇。那张合照里，姐姐终于笑得不再勉强。'], after: '我们会告别，但我们不会失去彼此。' }
   };
   const positions = {
-    station: { ren: [20,12], timetable: [12,7], photo: [4,13], 'station-lock': [28,10], 'to-town': [30,14] },
-    town: { nagi: [10,14], notice: [20,10], crane: [27,11], 'to-station': [2,14], 'to-shrine': [18,3], 'to-archive': [33,14], 'to-river': [19,23] },
+    station: root.KiriMaps.maps.station.anchors,
+    town: root.KiriMaps.maps.town.anchors,
     shrine: { lanterns: [14,13], mural: [6,12], 'shrine-shiori': [19,15], 'to-town': [14,22] },
     archive: { records: [13,5], ledger: [7,14], tape: [19,15], 'to-tower': [23,5], 'to-town': [13,20] },
     tower: { gears: [12,7], marks: [6,12], 'tower-shiori': [17,13], 'to-archive': [6,20], 'to-river': [20,18] },

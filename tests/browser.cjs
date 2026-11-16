@@ -97,6 +97,8 @@ async function main() {
   results.push('Prologue, lantern, gated map and recovering an initially declined promise');
   console.log('Prologue passed');
   await waitFor("document.getElementById('player').classList.contains('has-walk-sheet')");
+  await evaluate("(()=>{const w=document.getElementById('world'),r=w.getBoundingClientRect(),p=KiriRenderer.project({x:16,y:10});w.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:r.left+p.x,clientY:r.top+p.y}));})()");
+  await waitFor("document.getElementById('player').dataset.tileX==='16'&&document.getElementById('player').dataset.tileY==='10'&&!document.getElementById('player').classList.contains('walking')");
   await evaluate(`(()=>{
     window.__movementTrace=[];window.__traceWalking=true;
     const sample=t=>{const p=document.getElementById('player');window.__movementTrace.push({t,x:+p.dataset.visualX,y:+p.dataset.visualY,frame:+p.dataset.walkFrame,walking:p.classList.contains('walking')});if(window.__traceWalking)requestAnimationFrame(sample);};requestAnimationFrame(sample);
@@ -132,15 +134,16 @@ async function main() {
   await echo(); await object('timetable');
   assert.equal(await evaluate("getComputedStyle(document.querySelector('#object-photo .object-marker')).animationName"),'interaction-glint');
   assert.equal(await evaluate("getComputedStyle(document.querySelector('#object-photo .object-marker')).width"),'7px');
-  for(const point of [[4,12],[4,14]]) {
+  const photoPosition=await evaluate("KiriData.zones.station.objects.find(o=>o.id==='photo')");
+  for(const point of [[photoPosition.x+2,photoPosition.y+1],[photoPosition.x,photoPosition.y+1]]) {
     await evaluate(`(()=>{const w=document.getElementById('world'),r=w.getBoundingClientRect(),p=KiriRenderer.project({x:${point[0]},y:${point[1]}});w.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:r.left+p.x,clientY:r.top+p.y}));})()`);
     await waitFor(`document.getElementById('player').dataset.tileX==='${point[0]}'&&document.getElementById('player').dataset.tileY==='${point[1]}'`);
   }
   await waitFor("Number(getComputedStyle(document.querySelector('#object-photo .object-marker')).opacity) > .75");
-  const photoClip=await evaluate("(()=>{const r=document.getElementById('world').getBoundingClientRect(),p=KiriRenderer.project({x:4,y:13});return {x:Math.max(r.left+6,r.left+p.x-260),y:Math.max(r.top+6,r.top+p.y-145),width:600,height:350,scale:1}})()");
+  const photoClip=await evaluate("(()=>{const r=document.getElementById('world').getBoundingClientRect(),p=KiriRenderer.project(KiriData.zones.station.objects.find(o=>o.id==='photo'));return {x:Math.max(r.left+6,r.left+p.x-260),y:Math.max(r.top+6,r.top+p.y-145),width:600,height:350,scale:1}})()");
   await screenshot('preview-photo-detail.png',photoClip);
   await object('photo');
-  assert.equal(await evaluate("document.getElementById('object-photo').dataset.tileX"),'4');
+  assert.equal(await evaluate("+document.getElementById('object-photo').dataset.tileX"),photoPosition.x);
   assert.equal(await evaluate("document.querySelector('[data-prop=photo-bench]') !== null"),true);
   assert.equal(await evaluate("getComputedStyle(document.querySelector('#object-photo .object-marker')).animationName"),'none');
   const mortar=await evaluate(`(()=>{
@@ -153,11 +156,17 @@ async function main() {
   await click('#puzzle-check'); assert.match(await evaluate("document.getElementById('puzzle-status').textContent"), /没有打开/);
   for (const [index, count] of [[1, 7], [2, 1], [3, 6]]) for (let i = 0; i < count; i++) await click(`[data-digit="${index}"][data-delta="1"]`);
   await click('#puzzle-check'); await drain(); assert.deepEqual((await saved()).solved, ['station']);
+  assert.equal(await evaluate("KiriMaps.walkable('station',23,13,JSON.parse(localStorage.getItem('kiriakari.save.v1')).solved)"),true);
   results.push('Station clue and memory, wrong answer recovery, date lock');
   console.log('Station passed');
   await click('#object-to-town'); await waitFor("document.getElementById('zone-name').textContent === '灯见街'"); await pause(100);
   await object('nagi', true, 1); assert.equal(!!(await saved()).flags.helpedNagi, false); await object('nagi');
-  await object('notice'); await pause(4300); await screenshot('preview-town.png'); await object('crane');
+  await object('notice'); await pause(4300); await screenshot('preview-town.png');
+  await evaluate("(()=>{const w=document.getElementById('world'),r=w.getBoundingClientRect(),p=KiriRenderer.project({x:27,y:9});w.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:r.left+p.x,clientY:r.top+p.y}));})()");
+  await waitFor("document.getElementById('player').dataset.tileX==='27'&&document.getElementById('player').dataset.tileY==='9'");
+  assert.equal(await evaluate("document.querySelector('.roof-thread').dataset.attachment"),'town-east-house');
+  const craneClip=await evaluate("(()=>{const r=document.getElementById('world').getBoundingClientRect(),p=KiriRenderer.project({x:27,y:8});return {x:Math.min(innerWidth-640,Math.max(r.left+6,r.left+p.x-320)),y:Math.max(r.top+6,r.top+p.y-240),width:640,height:400,scale:1}})()");
+  await screenshot('preview-crane-detail.png',craneClip);await object('crane');
   assert.equal((await saved()).flags.helpedNagi, true);
   await map('shrine'); await object('mural'); await object('lanterns', false);
   for (const symbol of ['moon', 'mountain', 'river', 'boat']) await click(`[data-lantern="${symbol}"]`);
@@ -230,11 +239,11 @@ async function main() {
   results.push('Grid keyboard movement, blocked bridge railing, Q, mobile camera with no overflow, ending gallery');
   assert.deepEqual(errors, []);
   // Verify all referenced art exists and the character sheet really has an alpha channel.
-  for (const name of ['title', 'world-atlas', 'portraits', 'sprites', 'tileset', 'terrain-variety', 'foliage-variety', 'mounted-props', 'world-props', 'stone-grain', 'mio-walk', 'mio-walk-v2']) { const response = await fetch(`${base}/assets/${name}.png`); assert.equal(response.status, 200); }
+  for (const name of ['title', 'world-atlas', 'portraits', 'sprites', 'tileset', 'terrain-variety', 'foliage-variety', 'mounted-props', 'world-props', 'stone-grain', 'mio-walk', 'mio-walk-v2', 'hanging-crane', 'station-fixtures-v2']) { const response = await fetch(`${base}/assets/${name}.png`); assert.equal(response.status, 200); }
   const sprite = fs.readFileSync(path.join(ROOT, 'assets/sprites.png')); assert.equal(sprite[25], 6);
   const foliage = fs.readFileSync(path.join(ROOT,'assets/foliage-variety.png')); assert.equal(foliage[25],6);
   assert.equal(await evaluate("KiriMaps.maps.town.scenery.length > 50 && KiriMaps.maps.shrine.scenery.length > 40"),true);
-  const report = { passed: true, results, errors, screenshots: ['preview-title.png', 'preview-photo-detail.png', 'preview-station.png', 'preview-town.png', 'preview-shrine.png', 'preview-archive.png', 'preview-game.png', 'preview-river.png', 'preview-ending.png', 'preview-mobile.png'] };
+  const report = { passed: true, results, errors, screenshots: ['preview-title.png', 'preview-photo-detail.png', 'preview-crane-detail.png', 'preview-station.png', 'preview-town.png', 'preview-shrine.png', 'preview-archive.png', 'preview-game.png', 'preview-river.png', 'preview-ending.png', 'preview-mobile.png'] };
   fs.writeFileSync(path.join(__dirname, 'browser-report.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
   await send('Browser.close').catch(() => {});
