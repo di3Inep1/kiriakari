@@ -82,13 +82,14 @@
     const container = $('objects'); container.replaceChildren();
     visibleObjects().forEach(obj => {
       const el = document.createElement('button'); el.type = 'button';
-      el.className = `object ${obj.character !== undefined ? 'character' : obj.mark || ''} ${obj.phase === 'echo' ? 'echo-actor' : ''}`;
+      el.className = `object ${obj.character !== undefined ? 'character' : obj.mark || ''} ${obj.phase === 'echo' ? 'echo-actor' : ''} ${obj.support ? 'mounted' : ''}`;
       el.id = `object-${obj.id}`; el.dataset.tileX = obj.x; el.dataset.tileY = obj.y;
       el.setAttribute('aria-label', obj.name); el.dataset.object = obj.id;
       let solved = false;
       if (obj.action.startsWith('puzzle-')) solved = state.solved.includes(obj.action.slice(7));
       el.classList.toggle('solved', solved);
       el.classList.toggle('collected', state.memories.includes(obj.action));
+      el.classList.toggle('read', state.clues.includes(obj.action));
       const marker = solved ? '✓' : (obj.character !== undefined ? '···' : obj.mark === 'memory' ? '✧' : obj.mark === 'exit' ? '↗' : obj.mark === 'puzzle' ? '◇' : '·');
       el.innerHTML = `${obj.character !== undefined ? `<div class="actor"><div class="actor-shadow"></div><div class="sprite" style="background-position:${obj.character * 100 / 3}% 0%"></div></div>` : ''}<span class="object-marker"><span>${marker}</span></span><span class="object-label">${obj.name}</span>${obj.label ? `<span class="object-detail">${obj.label}</span>` : ''}`;
       el.addEventListener('click', e => { e.stopPropagation(); approach(obj); }); container.appendChild(el);
@@ -106,8 +107,8 @@
     if (walking !== lastWalk) player.classList.toggle('walking', walking && !reducedMotion);
     lastWalk = walking;
     visibleObjects().forEach(obj => {
-      const el = $(`object-${obj.id}`), position = R.project(obj);
-      if (el) { el.style.left = position.x + 'px'; el.style.top = position.y + 'px'; el.style.zIndex = String(Math.round(obj.y * 5) + (obj.character !== undefined ? 10 : 3)); }
+      const el = $(`object-${obj.id}`), position = R.project({x:obj.x+(obj.focusOffset?.x||0),y:obj.y+(obj.focusOffset?.y||0)});
+      if (el) { el.style.left = position.x + 'px'; el.style.top = position.y + 'px'; el.style.zIndex = String(Math.round(obj.y * 5) + (obj.character !== undefined ? 10 : 16)); }
     });
     if (target) showClickTarget(target);
   }

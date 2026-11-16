@@ -13,6 +13,32 @@
 | `assets/tileset.png` | 8 列 × 8 行的经典俯视 2D 地块；草地、道路、屋顶、墙体、水面和家具；实际游戏地图由地块拼成 |
 | `assets/terrain-variety.png` | 制作过程保留的 32 格地面变体；正式地图改为统一使用 tileset.png 同材质底纹，不混铺此图 |
 | `assets/foliage-variety.png` | 新增 4 列 × 4 行透明植被：8 种乔木 / 竹丛，绣球、野花、山茶、蕨类、芦苇、苔石、盆栽与落叶 |
+| `assets/mounted-props.png` | 2 × 2 透明组合物件：长椅与照片、书桌与手记、书桌与录音机、屋檐与悬挂纸鹤 |
+| `assets/world-props.png` | 4 × 2 透明场景物件：灯、告示、石碑、齿轮、桌、记录柜、钟、神龛；没有附带地砖底块 |
+| `assets/stone-grain.png` | 统一石材颗粒底纹；由地图坐标上的连续砖缝结构取样，避免格子接缝错位 |
+
+## 物件承载与连续砖缝 · 2026-11-16
+
+以下素材使用内置 image_gen 生成。透明组合物件将小物件真正放在家具上；透明单体物件消除了烘焙地面方块。石材底纹只有均匀颗粒，铺砖结构由游戏按世界坐标连续绘制，平均色调与砖缝尺寸保持一致。
+
+### mounted-props.png
+
+```
+Use case: stylized-concept. Asset type: transparent 2x2 furniture-and-object sprite atlas for an existing classic 2D top-down Japanese puzzle RPG. Input image is STYLE REFERENCE ONLY for palette and 16-bit pixel clusters. Create a new EXACT 2 columns x 2 rows grid of equal square cells, no gutters, no labels. True transparent background. Every complete furniture assembly centered horizontally within its own cell, feet / lower edge at 90 percent down the cell, generous transparent space above, original muted wood brown and cool navy, crisp restrained pixel art, orthographic overhead RPG camera consistent with reference, no perspective scene, NO floor rectangles, NO ground tiles, NO cast shadow outside sprite. Top left: a wide worn Japanese railway wooden bench, THREE seats, seen from above/front, warm horizontal wooden slats and dark metal legs, with a TINY postcard-sized vintage photograph resting flat on the RIGHT end of the seat. Photograph no more than one eighth bench width, a small pale rectangle, no standing photo frame, no object on the ground. Top right: an old wooden school writing desk, seen overhead, with an OPEN HANDWRITTEN LEDGER lying FLAT on the desktop and two stacked books along its upper left edge, visible wooden table legs. Bottom left: a matching old wooden school writing desk with a compact CASSETTE RECORDER resting FLAT on the desktop, a short coiled cable and one closed book beside it. Bottom right: a short dark Japanese wooden eave beam with a tiny white origami crane hanging BELOW it by a slender red thread, the beam and crane together form one complete assembly, viewed as a classic RPG prop; no surrounding wall, no floor, tiny crane rather than huge sculpture. All four assemblies fit entirely in their square cells. Bench and desks about 85 percent cell width, sprite base at same 90 percent baseline. No letters, no readable words, no watermark, no characters.
+```
+
+### stone-grain.png
+
+```
+Use case: stylized-concept. Asset type: neutral stone MATERIAL texture for a classic 2D top-down RPG renderer. Input image is a STYLE and COLOR REFERENCE ONLY. Create one square full-bleed texture of cool medium-grey, slightly moss-grey aged granite surface with very fine restrained 16-bit pixel-art grain. This texture will be sampled inside individually drawn paving stones, so it must contain NO brick pattern, NO mortar, NO joints, NO grid, NO tile borders and NO separate stones. Uniform medium grey across the entire canvas, small low-contrast mineral speckles, tiny barely visible wear, pixel clusters no larger than 2-4 source pixels. Matte and evenly lit. Keep ALL regions exactly the same average brightness and hue; no dark patches, no light patches, no gradients, no vignetting, no moss clumps, no cracks, no bevels, no 3D lighting. Palette neutral cool desaturated grey with a very slight green tint matching the existing stone paving reference, not blue, not brown. A quiet repeatable low-contrast surface material, not a stone photograph or an illustration. No objects, no text, no watermark.
+```
+
+### world-props.png
+
+```
+Use case: stylized-concept. Asset type: transparent object sprite atlas for an existing classic 2D top-down Japanese puzzle RPG. Reference image is ONLY for style, color and object identity. Create exactly FOUR columns by TWO rows, eight equal square cells, no gutters, no grid lines, no labels. Each cell contains one COMPLETE isolated prop with true transparent background and NO floor, NO stone paving rectangle, NO ground patch, no cast shadow outside sprite. Crisp 16-bit pixel-art clusters matching the reference. Restrained dark wood, navy brass, warm amber lighting; classic overhead RPG perspective, not isometric. Props centered horizontally, all bases at 94% down their square cell. Row1 columns1-4: Japanese red paper lantern with warm golden light mounted on a short dark stone pedestal; simple wooden village noticeboard with a tiny blank faded paper pinned to it; a small weathered stone memorial upright slab on a short base with unreadable worn engravings; a compact antique brass clockwork gear assembly standing on a small dark wooden support. Row2 columns1-4: simple old wooden writing table with empty desktop; an old wooden records CABINET with drawers and a small keyhole, not a treasure chest; small upright wooden pendulum floor clock with tiny pale clock face; small wooden Japanese shrine altar with tiny offering bowl. Keep every sprite entirely inside its individual square cell with transparent margins. The objects occupy central 65-80% of cell. Do not include loose items in the transparent margins. NO background surfaces, NO tile borders, NO text, NO characters, NO watermark.
+```
+
 
 ## 场景丰富化 · 2026-11-16
 

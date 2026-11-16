@@ -5,7 +5,7 @@
       objects: [
         { id: 'ren', name: '莲', label: '站务员', x: 65, y: 58, character: 2, action: 'ren' },
         { id: 'timetable', name: '褪色的时刻表', x: 25, y: 43, action: 'date', mark: 'inspect' },
-        { id: 'photo', name: '长椅上的合照', x: 34, y: 70, phase: 'echo', action: 'photo', mark: 'memory' },
+        { id: 'photo', name: '长椅上的合照', x: 34, y: 70, phase: 'echo', action: 'photo', mark: 'memory', support: 'photo-bench', focusOffset: { x: .78, y: -.45 } },
         { id: 'station-lock', name: '检票闸门', x: 83, y: 53, action: 'puzzle-station', mark: 'puzzle' },
         { id: 'to-town', name: '前往灯见街', x: 90, y: 74, action: 'go-town', mark: 'exit' }
       ] },
@@ -13,7 +13,7 @@
       objects: [
         { id: 'nagi', name: '凪婆婆', label: '制灯人', x: 35, y: 57, character: 3, action: 'nagi' },
         { id: 'notice', name: '祭典告示', x: 66, y: 43, action: 'notice', mark: 'inspect' },
-        { id: 'crane', name: '檐下的纸鹤', x: 68, y: 72, phase: 'echo', action: 'crane', mark: 'memory' },
+        { id: 'crane', name: '檐下的纸鹤', x: 68, y: 72, phase: 'echo', action: 'crane', mark: 'memory', support: 'eave-crane', focusOffset: { x: 0, y: -.17 } },
         { id: 'to-station', name: '雾灯车站', x: 12, y: 72, action: 'go-station', mark: 'exit' },
         { id: 'to-shrine', name: '月见神社', x: 72, y: 34, action: 'go-shrine', mark: 'exit' },
         { id: 'to-archive', name: '旧校书库', x: 90, y: 58, action: 'go-archive', mark: 'exit' },
@@ -29,8 +29,8 @@
     archive: { name: '旧校书库', reading: 'THE FORGOTTEN ARCHIVE', sub: '不是每一个空白，都意味着遗忘。', atlas: [1, 1], spawn: [50, 79], links: ['town', 'tower'],
       objects: [
         { id: 'records', name: '祭典记录柜', x: 50, y: 48, action: 'puzzle-archive', mark: 'puzzle' },
-        { id: 'ledger', name: '值日生的手记', x: 25, y: 58, action: 'chronology', mark: 'inspect' },
-        { id: 'tape', name: '旧录音机', x: 75, y: 63, phase: 'echo', action: 'tape', mark: 'memory' },
+        { id: 'ledger', name: '值日生的手记', x: 25, y: 58, action: 'chronology', mark: 'inspect', support: 'ledger-desk', focusOffset: { x: .2, y: -.72 } },
+        { id: 'tape', name: '旧录音机', x: 75, y: 63, phase: 'echo', action: 'tape', mark: 'memory', support: 'recorder-desk', focusOffset: { x: -.36, y: -.72 } },
         { id: 'to-tower', name: '通往钟楼', x: 85, y: 56, action: 'go-tower', mark: 'exit' },
         { id: 'to-town', name: '返回灯见街', x: 50, y: 84, action: 'go-town', mark: 'exit' }
       ] },
@@ -69,8 +69,8 @@
     dawn: { number: 'IV', name: '与你重逢的黎明', en: 'UNTIL WE MEET AT DAWN', color: '#f3cf95', lead: '这一次，你终于叫出了她的名字。', paragraphs: ['「栞。」你把四段回忆写进灯纸。你记得她的等待、愿望、恐惧，也记得她想活下去的真心。你终于不再只把她当作一个救了所有人的传说。', '莲和凪婆婆从街的另一端走来。每一盏写着姓名的灯，都接住了一小片夜色。没有人需要独自留在这里。第十三次钟声响了。', '姐姐握了握你的手。「这一次，不用在原地等我。去看看以后的春天吧。」', '七年后第一次日出，照进真正的雾灯车站。澪把红丝带系在行李上，走向正在醒来的小镇。那张合照里，姐姐终于笑得不再勉强。'], after: '我们会告别，但我们不会失去彼此。' }
   };
   const positions = {
-    station: { ren: [20,12], timetable: [12,7], photo: [8,14], 'station-lock': [28,10], 'to-town': [30,14] },
-    town: { nagi: [10,14], notice: [20,10], crane: [27,18], 'to-station': [2,14], 'to-shrine': [18,3], 'to-archive': [33,14], 'to-river': [19,23] },
+    station: { ren: [20,12], timetable: [12,7], photo: [4,13], 'station-lock': [28,10], 'to-town': [30,14] },
+    town: { nagi: [10,14], notice: [20,10], crane: [27,11], 'to-station': [2,14], 'to-shrine': [18,3], 'to-archive': [33,14], 'to-river': [19,23] },
     shrine: { lanterns: [14,13], mural: [6,12], 'shrine-shiori': [19,15], 'to-town': [14,22] },
     archive: { records: [13,5], ledger: [7,14], tape: [19,15], 'to-tower': [23,5], 'to-town': [13,20] },
     tower: { gears: [12,7], marks: [6,12], 'tower-shiori': [17,13], 'to-archive': [6,20], 'to-river': [20,18] },

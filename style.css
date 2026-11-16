@@ -47,3 +47,22 @@
 .scenery-sprite.tree .scenery-shadow{height:10%;left:15%;right:15%;bottom:2%;background:#06151988;filter:blur(4px)}
 .world.echo .scenery-art{filter:brightness(.92) saturate(.57) hue-rotate(8deg)}
 .scenery-sprite.leaves .scenery-art{opacity:.4}
+
+#furniture{pointer-events:none}
+.scene-prop{position:absolute;width:calc(var(--tile-size)*var(--prop-scale));height:calc(var(--tile-size)*var(--prop-scale));transform:translate(-50%,-98.5%);pointer-events:none;image-rendering:pixelated;filter:brightness(.87) saturate(.86) drop-shadow(0 2px 1px #07191c40)}
+.world.echo .scene-prop{filter:brightness(.96) saturate(.65) hue-rotate(6deg) drop-shadow(0 2px 1px #07191c40)}
+
+/* Quiet interaction glints replace the large diamond badges. */
+.object.inspect .object-marker,.object.puzzle .object-marker,.object.memory .object-marker{width:7px;height:7px;border:0;border-radius:0;background:none;box-shadow:none;color:#ffe7a8;transform:translateX(-50%);animation:interaction-glint 2.15s ease-in-out infinite}
+.object.memory .object-marker{color:#dcf2ff}
+.object.inspect .object-marker>span,.object.puzzle .object-marker>span,.object.memory .object-marker>span{display:none}
+.object.inspect .object-marker:before,.object.puzzle .object-marker:before,.object.memory .object-marker:before,.object.inspect .object-marker:after,.object.puzzle .object-marker:after,.object.memory .object-marker:after{content:"";position:absolute;left:50%;top:50%;background:currentColor;transform:translate(-50%,-50%);box-shadow:0 0 4px currentColor}
+.object.inspect .object-marker:before,.object.puzzle .object-marker:before,.object.memory .object-marker:before{width:1px;height:7px}
+.object.inspect .object-marker:after,.object.puzzle .object-marker:after,.object.memory .object-marker:after{width:7px;height:1px}
+.object.mounted .object-marker{bottom:0;transform:translate(-50%,50%)}
+.object.mounted .object-label{bottom:14px}
+.object.collected .object-marker,.object.solved .object-marker{animation:none;opacity:0;filter:none}
+.object.read .object-marker{animation:none;opacity:.25;filter:none}
+.object.inspect:hover .object-marker,.object.puzzle:hover .object-marker,.object.memory:hover .object-marker,.object.inspect.near .object-marker,.object.puzzle.near .object-marker,.object.memory.near .object-marker{border:0;background:none;box-shadow:none}
+@keyframes interaction-glint{0%,100%{opacity:.28;filter:brightness(.85)}45%,60%{opacity:.95;filter:brightness(1.18)}}
+@media(prefers-reduced-motion:reduce){.object.inspect .object-marker,.object.puzzle .object-marker,.object.memory .object-marker{animation:none;opacity:.75}.object.collected .object-marker,.object.solved .object-marker{opacity:0}.object.read .object-marker{opacity:.25}}

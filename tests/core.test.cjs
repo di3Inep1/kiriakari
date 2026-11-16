@@ -73,3 +73,16 @@ test('every object, character and exit has a reachable adjacent tile', () => {
     for (const point of plan.path) { assert.equal(M.walkable(id, point.x, point.y), true); assert.equal(Math.abs(point.x - previous.x) + Math.abs(point.y - previous.y), 1); previous = point; }
   }
 });
+test('named portable items are attached to matching furniture, not dropped on the floor',()=>{
+  const fs=require('node:fs'),vm=require('node:vm'),sandbox={KiriMaps:M};
+  vm.runInNewContext(fs.readFileSync(require.resolve('../data.js'),'utf8'),sandbox);
+  const supported=[];
+  for(const [zoneId,zone] of Object.entries(sandbox.KiriData.zones)) for(const object of zone.objects) if(object.support) {
+    const prop=M.maps[zoneId].props.find(p=>p.id===object.support);
+    assert.ok(prop,`${zoneId}/${object.id} has furniture`);assert.equal(prop.x,object.x);assert.equal(prop.y,object.y);supported.push(object.id);
+  }
+  assert.deepEqual(supported.sort(),['crane','ledger','photo','tape']);
+  assert.equal(M.maps.station.tiles.includes(55),false);
+  assert.equal(M.maps.archive.tiles.includes(50),false);assert.equal(M.maps.archive.tiles.includes(51),false);
+  for(const tile of [40,41,43,45,46,48,49,53]) for(const map of Object.values(M.maps)) assert.equal(map.tiles.includes(tile),false);
+});
