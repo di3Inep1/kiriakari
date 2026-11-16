@@ -119,6 +119,31 @@ async function main() {
   assert.equal(await evaluate("document.getElementById('player').classList.contains('walking')"),false);
   results.push('Rapid mid-step turn has no rollback or boundary pause; both stride frames play and idle settles');
   console.log('Movement and walk frames passed');
+  await waitFor('KiriLighting.assetsReady()');
+  assert.match(await evaluate("getComputedStyle(document.querySelector('.player-lantern')).backgroundImage"),/guide-lantern/);
+  const lampClip=await evaluate("(()=>{const r=document.getElementById('world').getBoundingClientRect(),p=KiriRenderer.project({x:+document.getElementById('player').dataset.visualX,y:+document.getElementById('player').dataset.visualY});return {x:Math.max(r.left+2,Math.min(innerWidth-640,r.left+p.x-320)),y:Math.max(r.top+2,r.top+p.y-220),width:640,height:360,scale:2}})()");
+  await pause(700);await screenshot('preview-lantern-present.png');await screenshot('preview-lantern-detail.png',lampClip);
+  await echo();await pause(1500);await screenshot('preview-memory.png');
+  await click('#settings-button');await click('#setting-particles');await click('#modal-close');
+  assert.equal(await evaluate("(()=>{const c=document.getElementById('atmosphere'),a=c.getContext('2d').getImageData(0,0,c.width,c.height).data;return a.some((v,i)=>i%4===3&&v>0)})()"),true,'Switching particles off retains the light and memory atmosphere');
+  await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await pause(200);
+  const still=await evaluate("document.querySelector('.player-lantern').style.getPropertyValue('--lamp-angle')");await pause(140);
+  assert.equal(still,'0deg');assert.equal(await evaluate("document.querySelector('.player-lantern').style.getPropertyValue('--lamp-angle')"),still);
+  assert.equal(await evaluate("(()=>{const p=document.getElementById('player'),c=document.getElementById('atmosphere'),ui=document.querySelector('.phase-button');return +getComputedStyle(c).zIndex>+getComputedStyle(p).zIndex&&+getComputedStyle(c).zIndex<+getComputedStyle(ui).zIndex})()"),true);
+  await send('Emulation.setEmulatedMedia',{features:[]});
+  await click('#settings-button');await click('#setting-particles');await click('#modal-close');
+  await click('#phase-button');
+  results.push('Generated hand lantern, lit memory fog, static lighting without particles, live reduced-motion preference and correct effect layers');
+  if(process.argv.includes('--lighting-only')){
+    for(const [key,code,facing] of [['s','KeyS',0],['a','KeyA',1],['d','KeyD',2],['w','KeyW',3]]){
+      await send('Input.dispatchKeyEvent',{type:'keyDown',key,code});await pause(80);
+      assert.equal(await evaluate("+document.getElementById('player').dataset.facing"),facing);
+      assert.equal(await evaluate("document.querySelector('.player-lantern').dataset.behind"),String(facing===3));
+      await send('Input.dispatchKeyEvent',{type:'keyUp',key,code});await pause(230);
+    }
+    await echo();await pause(4300);await screenshot('preview-memory.png');
+    assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,results,errors},null,2));await send('Browser.close');return;
+  }
   if(process.argv.includes('--movement-only')){
     for(const [key,code,facing] of [['s','KeyS',0],['a','KeyA',1],['d','KeyD',2],['w','KeyW',3]]){
       await send('Input.dispatchKeyEvent',{type:'keyDown',key,code});await pause(180);

@@ -178,7 +178,7 @@
         node.style.zIndex=String(depth(b.frontY-.92));
         const pen=node.getContext('2d');pen.imageSmoothingEnabled=false;
         paintBuilding(pen,map,b,size,(b.x-.6)*size,(b.y-.1)*size);
-        pen.globalCompositeOperation='source-atop';pen.fillStyle=phase==='echo'?'rgba(59,84,123,.19)':'rgba(5,22,38,.22)';pen.fillRect(0,0,node.width,node.height);
+        pen.globalCompositeOperation='source-atop';pen.fillStyle=phase==='echo'?'rgba(226,210,174,.07)':'rgba(5,22,38,.22)';pen.fillRect(0,0,node.width,node.height);
         buildings.appendChild(node);return {b,node};
       });
     }
@@ -209,7 +209,7 @@
       }
     }
     drawPlatform(ctx,map,view.tile,originX,originY);
-    ctx.fillStyle = phase === 'echo' ? 'rgba(59,84,123,.19)' : 'rgba(5,22,38,.22)'; ctx.fillRect(0, 0, view.width, view.height);
+    ctx.fillStyle = phase === 'echo' ? 'rgba(226,210,174,.07)' : 'rgba(5,22,38,.22)'; ctx.fillRect(0, 0, view.width, view.height);
     map.lights.forEach(({x,y})=>{
       const p = project({ x, y: y - .35 }), radius = view.tile * 1.7;
       if (p.x < -radius || p.x > view.width + radius || p.y < -radius || p.y > view.height + radius) return;
@@ -237,5 +237,5 @@
     map.props.forEach(p=>{const pose=root.KiriMaps.attachmentPose(zone,p);layers.push({z:pose?depth(pose.building.frontY-.92,1):depth(p.y,-1),draw:()=>{const {source,columns,rows,sprite}=propFrame(p,solved);if(!source.complete||!source.naturalWidth)return;const sw=source.naturalWidth/columns,sh=source.naturalHeight/rows,extent=p.size*size,x=pose?pose.x:p.x+.5,y=pose?pose.bottomY:p.y+.92;pen.drawImage(source,sprite%columns*sw+4,Math.floor(sprite/columns)*sh+4,sw-8,sh-8,x*size-extent*.5,y*size-extent*.985,extent,extent);}});});
     layers.sort((a,b)=>a.z-b.z).forEach(layer=>layer.draw());
   }
-  root.KiriRenderer = { view, resize, draw, project, unproject, thumbnail, depth, assetsReady:()=>[image,foliage,mountedImage,worldProps,stoneGrain,stationKit,craneImage].every(i=>i.complete&&i.naturalWidth>0) };
+  root.KiriRenderer = { view, resize, draw, project, unproject, thumbnail, depth, assetsReady:()=>[image,foliage,mountedImage,worldProps,stoneGrain,stationKit,craneImage].every(i=>i.complete&&i.naturalWidth>0)&&!!root.KiriLighting?.assetsReady() };
 })(globalThis);

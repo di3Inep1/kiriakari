@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const out = path.join(root, 'dist');
-const files = ['index.html', 'style.css', 'scenery.js', 'maps.js', 'movement.js', 'core.js', 'data.js', 'world.js', 'audio.js', 'game.js'];
+const files = ['index.html', 'style.css', 'scenery.js', 'maps.js', 'movement.js', 'core.js', 'data.js', 'world.js', 'audio.js', 'lighting.js', 'game.js'];
 fs.mkdirSync(out, { recursive: true });
 for (const name of files) fs.copyFileSync(path.join(root, name), path.join(out, name));
 fs.cpSync(path.join(root, 'assets'), path.join(out, 'assets'), { recursive: true });

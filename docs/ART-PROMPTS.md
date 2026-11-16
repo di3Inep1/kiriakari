@@ -129,3 +129,13 @@ Use case: stylized-concept. Asset type: single 2x2 character portrait atlas for 
 Use case: stylized-concept. Asset type: transparent pixel-art character sprite sheet for an original Japanese overhead RPG. EXACT grid of 4 columns by 4 rows, each of the 16 equal cells contains one tiny FULL BODY character sprite centered in its cell with feet aligned 85% down the cell, consistent 32x48 pixel inspired chibi proportions, crisp pixel clusters, no shadows, transparent empty space. Four columns are the four characters: column 1 young Japanese heroine with short black bob, cream coat, dark skirt and little red satchel; column 2 older sister with long black hair, red ribbon, white shrine haori and muted red hakama; column 3 young Japanese male railway keeper with navy cap, indigo uniform and brass trim; column 4 elderly woman with silver bun, indigo kimono and amber scarf. Four rows are facing directions: row 1 facing camera SOUTH, row 2 facing WEST, row 3 facing EAST, row 4 back facing NORTH. Equal cell grid. A charming atmospheric Japanese indie RPG, cream navy teal and red colors. All 16 figures separated and inside their individual equal cells; no weapons, no backgrounds, no text, no labels, no watermarks. Genuine transparent background.
 ```
 
+
+## 引灯与回忆氛围
+
+新素材 `assets/guide-lantern.png` 由内置 image_gen 生成，参考主角行走图的像素风格，保留真实透明通道；未使用外部图片 API。光晕、雾气、颗粒与切换光纹为程序实时绘制。
+
+最终提示词：
+```
+Use case: stylized-concept. Asset type: original small pixel-art handheld lantern sprite for a top-down Japanese mystery RPG. Reference image is ONLY a style reference for the existing heroine's warm muted pixel art; do not depict the heroine.
+Create exactly ONE small hanging Japanese paper lantern, isolated on genuine transparent alpha background. A simple dark walnut wooden square frame, softly illuminated ivory washi paper panes, tiny antique brass top loop with a short curved carrying handle, modest bottom wooden foot. Three-quarter orthographic front view, clearly readable silhouette at 16-22 pixels tall. Keep restrained hand-painted pixel clusters, crisp stepped edges, NO anti-aliased vector icon look. Warm amber core and cream paper, dark brown structural outlines, a few subtle red cord pixels. No writing, no symbols, no letters, no background, no floor, no character, no prop sheet, no cast shadow, no baked external glow or haze. Lantern and handle fill about 90 percent image height, centered, with narrow transparent margin. Treat it as a practical 2D game sprite, not a photorealistic lantern or a detailed illustration.
+```

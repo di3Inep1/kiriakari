@@ -7,13 +7,16 @@
   let target = null, pendingObject = null, nearest = null, lastFrame = performance.now(), saveTick = 0, lastWalk = false;
   let route = [], movementSavePending = false, walkSheetReady = false;
   const motion=Move.create(),walkSheet=new Image();
+  let lanternPoint={x:0,y:0};
   walkSheet.onload=()=>{walkSheetReady=true;$('player').classList.add('has-walk-sheet');$('player').style.setProperty('--walk-ratio',(walkSheet.naturalWidth/3)/(walkSheet.naturalHeight/4));};
   walkSheet.src='assets/mio-walk-v2.png';
   let dialogueLines = [], dialogueIndex = 0, dialogueEnd = null, typeTimer = null, typing = false, currentText = '';
   let toastTimer = null, splashTimer = null, transitionTimer = null, transitioning = false, puzzle = null, storageWarning = false;
   const keys = new Set();
   const settings = Object.assign({ sound: false, instantText: false, particles: true }, read(KEYS.settings) || {});
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const motionPreference=window.matchMedia('(prefers-reduced-motion: reduce)');
+  let reducedMotion=motionPreference.matches;
+  motionPreference.addEventListener('change',event=>{reducedMotion=event.matches;});
   if (reducedMotion) settings.instantText = true;
   let unlocked = read(KEYS.collection);
   unlocked = Array.isArray(unlocked) ? unlocked.filter(x => C.ENDINGS.includes(x)) : [];
@@ -106,6 +109,10 @@
     player.dataset.tileX = state.player.x; player.dataset.tileY = state.player.y;
     $('world').dataset.zone = state.zone;
     player.style.zIndex = String(R.depth(visual.y));
+    const lamp=KiriLighting.pose(state.player.facing,walking,performance.now(),reducedMotion),lampNode=player.querySelector('.player-lantern'),size=R.view.tile;
+    lampNode.style.left=`calc(50% + ${lamp.x*size}px)`;lampNode.style.top=`calc(100% + ${lamp.y*size}px)`;
+    lampNode.style.setProperty('--lamp-angle',lamp.angle+'deg');lampNode.dataset.behind=String(lamp.behind);
+    lanternPoint={x:point.x+lamp.x*size,y:point.y+lamp.y*size};
     const frame=walking?motion.frame:1;
     player.querySelector('.sprite').style.backgroundPosition = `${walkSheetReady?frame*50:0}% ${state.player.facing * 100 / 3}%`;
     player.dataset.walkFrame=String(frame);player.dataset.facing=String(state.player.facing);
@@ -169,7 +176,7 @@
     S.phase(state.phase === 'echo'); renderWorld(); save();
     if (!state.seen.includes('echo-tutorial')) {
       state.seen.push('echo-tutorial');
-      toast('回忆中会出现褪去的文字与旧日的物件。蓝色光点能找回一段回忆。');
+      toast('回忆中会出现褪去的文字与旧日的物件。细小光点能找回一段回忆。');
     }
   }
   function interact(obj) {
@@ -391,7 +398,7 @@
       body += C.CLUES.map(id => { const clue = D.clues[id], found = state.clues.includes(id); return `<article class="journal-entry ${found ? '' : 'locked'}"><h3>${found ? clue.title : '尚未浮现的文字'}</h3><small>${clue.place}</small><p>${found ? clue.text : '在回忆中，调查这里留下的文字。'}</p></article>`; }).join('');
     } else if (tab === 'memories') {
       body += `<p class="journal-intro">不是只记住她做过什么，也要记住她为什么而活。<br>已找回 ${state.memories.length} / 4 段回忆。</p>`;
-      body += C.MEMORIES.map(id => { const m = D.memories[id], found = state.memories.includes(id); return `<article class="journal-entry ${found ? '' : 'locked'}"><h3>${found ? m.title : '一段还未找回的回忆'}</h3><small>${m.place} · 回忆</small><p>${found ? m.text : '按 Q 照见旧日，寻找这里的蓝色光点。'}</p></article>`; }).join('');
+      body += C.MEMORIES.map(id => { const m = D.memories[id], found = state.memories.includes(id); return `<article class="journal-entry ${found ? '' : 'locked'}"><h3>${found ? m.title : '一段还未找回的回忆'}</h3><small>${m.place} · 回忆</small><p>${found ? m.text : '按 Q 照见旧日，寻找这里的细小光点。'}</p></article>`; }).join('');
     } else {
       body += '<p class="journal-intro">一盏灯，承不起所有人的夜晚。<br>有人愿意和你一起，把名字留到明天。</p>';
       const bonds = [['promisedRen', '莲的约定', '回到车站，回应他希望带给栞的那句话。'], ['helpedNagi', '凪婆婆的纸灯', '在灯见街帮婆婆修好灯，听她把往事说完。'], ['heardShiori', '栞真正的心愿', '在钟楼的回忆中，听完姐姐未说出口的话。']];
@@ -412,7 +419,7 @@
   }
   function openSettings() {
     const hasManual = !!getSave(KEYS.manual);
-    const html = `<div class="body-copy"><p>这是一段可以慢慢走完的旅程。所有谜题都提供三层提示，试错不会失去物品。</p></div><div class="setting-row"><div><b>环境音乐</b><small>原创合成钟声与缓慢的钢琴音色。</small></div><button id="setting-sound">${S.enabled ? '已开启' : '已关闭'}</button></div><div class="setting-row"><div><b>对话直接显示</b><small>关闭逐字浮现；任意时刻也可按 E 显示全文。</small></div><button id="setting-text">${settings.instantText ? '已开启' : '已关闭'}</button></div><div class="setting-row"><div><b>漂浮光点</b><small>减少场景中的环境动画。</small></div><button id="setting-particles">${settings.particles ? '已开启' : '已关闭'}</button></div><div class="help-grid"><div><kbd>WASD / ↑↓←→</kbd> 移动</div><div><kbd>E / Enter</kbd> 调查、继续</div><div><kbd>Q</kbd> 现世 / 回忆</div><div><kbd>J</kbd> 澪的手记</div><div><kbd>M</kbd> 旧地图</div><div><kbd>Esc</kbd> 关闭窗口</div></div><div class="body-copy"><p>点击地面可移动，点击人物或光点会自动走近并调查。手机可使用屏幕方向键。回忆中的蓝色光点能找回故事片段。</p><p>进度会自动保存在当前浏览器。请用同一个地址和浏览器继续；清理网站数据会删除存档。</p></div>${state && screen === 'play' ? `<div class="modal-actions"><button class="subtle-button" id="load-manual" ${hasManual ? '' : 'disabled'}>读取手动存档</button><button id="save-manual" class="button primary">手动存档 ⟶</button></div>` : ''}`;
+    const html = `<div class="body-copy"><p>这是一段可以慢慢走完的旅程。所有谜题都提供三层提示，试错不会失去物品。</p></div><div class="setting-row"><div><b>环境音乐</b><small>原创合成钟声与缓慢的钢琴音色。</small></div><button id="setting-sound">${S.enabled ? '已开启' : '已关闭'}</button></div><div class="setting-row"><div><b>对话直接显示</b><small>关闭逐字浮现；任意时刻也可按 E 显示全文。</small></div><button id="setting-text">${settings.instantText ? '已开启' : '已关闭'}</button></div><div class="setting-row"><div><b>漂浮光点</b><small>减少场景中的环境动画。</small></div><button id="setting-particles">${settings.particles ? '已开启' : '已关闭'}</button></div><div class="help-grid"><div><kbd>WASD / ↑↓←→</kbd> 移动</div><div><kbd>E / Enter</kbd> 调查、继续</div><div><kbd>Q</kbd> 现世 / 回忆</div><div><kbd>J</kbd> 澪的手记</div><div><kbd>M</kbd> 旧地图</div><div><kbd>Esc</kbd> 关闭窗口</div></div><div class="body-copy"><p>点击地面可移动，点击人物或光点会自动走近并调查。手机可使用屏幕方向键。回忆中闪动的细小光点能找回故事片段。</p><p>进度会自动保存在当前浏览器。请用同一个地址和浏览器继续；清理网站数据会删除存档。</p></div>${state && screen === 'play' ? `<div class="modal-actions"><button class="subtle-button" id="load-manual" ${hasManual ? '' : 'disabled'}>读取手动存档</button><button id="save-manual" class="button primary">手动存档 ⟶</button></div>` : ''}`;
     openModal('旅途设置', 'MAKE YOURSELF AT HOME', 'settings', html);
     $('setting-sound').onclick = async () => { await toggleSound(); if (modalKind === 'settings') $('setting-sound').textContent = S.enabled ? '已开启' : '已关闭'; };
     $('setting-text').onclick = () => { settings.instantText = !settings.instantText; write(KEYS.settings, settings); $('setting-text').textContent = settings.instantText ? '已开启' : '已关闭'; };
@@ -536,7 +543,6 @@
   window.addEventListener('pagehide', save);
   document.addEventListener('visibilitychange', () => { keys.clear(); clearTarget(); lastFrame = performance.now(); if (state) save(); });
   const ctx = $('atmosphere').getContext('2d');
-  const motes = Array.from({ length: 22 }, (_, i) => ({ x: ((i * 137.51) % 100) / 100, y: ((i * 53.29) % 100) / 100, speed: .13 + i % 4 * .08, size: i % 3 ? 1 : 2 }));
   let canvasWidth = 1, canvasHeight = 1;
   function resizeCanvas() {
     const rect = $('world').getBoundingClientRect(); if (!rect.width) return;
@@ -548,15 +554,7 @@
   window.addEventListener('resize', resizeCanvas);
   function paintAtmosphere(time) {
     if (!ctx) return;
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-    if (!settings.particles || reducedMotion) return;
-    const echo = state?.phase === 'echo';
-    motes.forEach((m, i) => {
-      const x = ((m.x + time * .000004 * m.speed) % 1) * canvasWidth;
-      const y = (m.y + Math.sin(time * .00025 + i) * .04) * canvasHeight;
-      ctx.fillStyle = echo ? `rgba(190,218,240,${.18 + Math.sin(time * .001 + i) * .12})` : `rgba(243,216,156,${.13 + Math.sin(time * .001 + i) * .1})`;
-      ctx.fillRect(x, y, m.size, m.size);
-    });
+    KiriLighting.paint(ctx,{width:canvasWidth,height:canvasHeight,tile:R.view.tile,view:R.view,point:R.project(Move.visual(motion,state.player)),lantern:lanternPoint,phase:state.phase,time,lit:!!state.flags.lantern,particles:settings.particles,reduced:reducedMotion});
   }
   function loop(now) {
     const dt = Math.min((now - lastFrame) / 1000, .05); lastFrame = now;

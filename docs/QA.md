@@ -74,3 +74,5 @@
 - 浏览器在新布局重新完成全故事、四个结局和手机检查，并生成纸鹤近景预览。
 
 遮挡复查：新增浏览器断言覆盖站房/路障、花丛根部深度、人物连续移动的前后切换、纸鹤父建筑层级及场景 UI。另保存 preview-occlusion-behind.png、preview-occlusion-front.png 与 preview-occlusion-station.png 实景对照。
+
+引灯与回忆氛围：浏览器完整流程通过，新增检查覆盖透明灯笼素材、关闭光点后保留照明、系统减少动态效果实时切换、画面效果位于角色之上而场景按钮之下。`node tests/browser.cjs --lighting-only` 专项检查四朝向位置与朝北时的身体遮挡。预览保存为 preview-lantern-present.png、preview-lantern-detail.png、preview-memory.png。雾气采用半分辨率缓冲，颗粒纹理缓存复用。
