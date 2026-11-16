@@ -54,6 +54,7 @@ async function main() {
   };
   const screenshot = async name => {
     await evaluate('document.fonts.ready');
+    await waitFor('KiriRenderer.assetsReady()');
     const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
     fs.writeFileSync(path.join(ROOT, name), Buffer.from(shot.data, 'base64'));
   };
@@ -96,6 +97,7 @@ async function main() {
   results.push('Prologue, lantern, gated map and recovering an initially declined promise');
   console.log('Prologue passed');
   await echo(); await object('timetable'); await object('photo');
+  await pause(4300); await screenshot('preview-station.png');
   await object('station-lock', false);
   await click('#puzzle-check'); assert.match(await evaluate("document.getElementById('puzzle-status').textContent"), /没有打开/);
   for (const [index, count] of [[1, 7], [2, 1], [3, 6]]) for (let i = 0; i < count; i++) await click(`[data-digit="${index}"][data-delta="1"]`);
@@ -109,12 +111,14 @@ async function main() {
   await map('shrine'); await object('mural'); await object('lanterns', false);
   for (const symbol of ['moon', 'mountain', 'river', 'boat']) await click(`[data-lantern="${symbol}"]`);
   await click('#puzzle-check'); await drain(); assert.equal((await saved()).solved.length, 2);
+  await pause(4300); await screenshot('preview-shrine.png');
   results.push('Physical scene exit, recovering a declined town request, paper crane and shrine puzzle');
   console.log('Shrine passed');
   await map('archive'); await object('ledger'); await object('tape'); await object('records', false);
   await click('[data-record="0"]'); await click('[data-record="2"]');
   await click('[data-record="1"]'); await click('[data-record="3"]');
   await click('#puzzle-check'); await drain(); assert.equal((await saved()).flags.truth, true);
+  await pause(4300); await screenshot('preview-archive.png');
   results.push('Archive memory, chronology exchange puzzle, story revelation');
   console.log('Archive passed');
   await map('tower'); await object('marks'); await object('tower-shiori');
@@ -131,6 +135,7 @@ async function main() {
   assert.match(await evaluate("document.querySelector('.finale-missing').textContent"), /河畔的姓名/);
   await click('#modal-close'); await echo(); await object('names');
   assert.equal((await saved()).memories.length, 4);
+  await pause(4300); await screenshot('preview-river.png');
   results.push('Reload persistence, locked true-ending explanation, final optional memory');
   await object('river-shiori'); assert.equal(await evaluate("document.querySelector('[data-ending=dawn]').disabled"), false);
   await click('[data-ending="dawn"]'); await waitFor("!document.getElementById('ending-screen').hidden");
@@ -173,9 +178,11 @@ async function main() {
   results.push('Grid keyboard movement, blocked bridge railing, Q, mobile camera with no overflow, ending gallery');
   assert.deepEqual(errors, []);
   // Verify all referenced art exists and the character sheet really has an alpha channel.
-  for (const name of ['title', 'world-atlas', 'portraits', 'sprites', 'tileset']) { const response = await fetch(`${base}/assets/${name}.png`); assert.equal(response.status, 200); }
+  for (const name of ['title', 'world-atlas', 'portraits', 'sprites', 'tileset', 'terrain-variety', 'foliage-variety']) { const response = await fetch(`${base}/assets/${name}.png`); assert.equal(response.status, 200); }
   const sprite = fs.readFileSync(path.join(ROOT, 'assets/sprites.png')); assert.equal(sprite[25], 6);
-  const report = { passed: true, results, errors, screenshots: ['preview-title.png', 'preview-town.png', 'preview-game.png', 'preview-ending.png', 'preview-mobile.png'] };
+  const foliage = fs.readFileSync(path.join(ROOT,'assets/foliage-variety.png')); assert.equal(foliage[25],6);
+  assert.equal(await evaluate("KiriMaps.maps.town.scenery.length > 50 && KiriMaps.maps.shrine.scenery.length > 40"),true);
+  const report = { passed: true, results, errors, screenshots: ['preview-title.png', 'preview-station.png', 'preview-town.png', 'preview-shrine.png', 'preview-archive.png', 'preview-game.png', 'preview-river.png', 'preview-ending.png', 'preview-mobile.png'] };
   fs.writeFileSync(path.join(__dirname, 'browser-report.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
   await send('Browser.close').catch(() => {});

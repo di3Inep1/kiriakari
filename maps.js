@@ -11,7 +11,7 @@
     map.put = (x, y, tile, solid = false) => { if (x >= 0 && y >= 0 && x < w && y < h) { map.tiles[y * w + x] = tile; map.solids[y * w + x] = solid; } };
     map.rect = (x, y, width, height, tile, solid = false) => { for (let r = y; r < y + height; r++) for (let c = x; c < x + width; c++) map.put(c, r, tile, solid); };
     map.border = tile => { map.rect(0, 0, w, 1, tile, true); map.rect(0, h - 1, w, 1, tile, true); map.rect(0, 0, 1, h, tile, true); map.rect(w - 1, 0, 1, h, tile, true); };
-    map.house = (x, y, width, height, roof = 19) => { map.rect(x, y, width, 1, roof === 18 ? 26 : 27, true); map.rect(x, y + 1, width, 1, roof, true); map.rect(x, y + 2, width, height - 2, 17, true); map.put(x + 1, y + height - 2, 29, true); map.put(x + width - 2, y + height - 2, 29, true); map.put(x + Math.floor(width / 2), y + height - 1, 30, true); };
+    map.house = (x, y, width, height, roof = 19) => { map.rect(x, y, width, 1, roof === 18 ? 26 : 27, true); map.rect(x, y + 1, width, 1, roof, true); map.rect(x, y + 2, width, height - 2, 17, true); map.put(x + 1, y + height - 2, 29, true); map.put(x + width - 2, y + height - 2, 29, true); if(height>=6) { map.put(x+2,y+3,29,true); map.put(x+width-3,y+3,29,true); } map.put(x + Math.floor(width / 2), y + height - 1, 30, true); };
     maps[id] = map; return map;
   }
   let m = create('station', 32, 20, 11, [16, 15]); m.border(34);
@@ -45,6 +45,8 @@
   m.rect(1, 9, 34, 4, 2); m.rect(1, 8, 34, 1, 56, true); m.rect(1, 13, 34, 1, 56, true);
   m.rect(10, 5, 3, 4, 61); m.put(11, 5, 45, true); m.put(26, 11, 2, true);
   [4, 16, 28, 33].forEach(x => { m.put(x, 8, 40, true); m.put(x, 13, 40, true); });
+  const scenery = typeof module === 'object' && module.exports ? require('./scenery.js') : globalThis.KiriScenery;
+  scenery.enrich(maps);
   function walkable(zone, x, y) { const map = maps[zone]; return !!map && Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < map.w && y < map.h && !map.solids[y * map.w + x]; }
   function findPath(zone, from, to) {
     const map = maps[zone], tx = Math.round(to.x), ty = Math.round(to.y);

@@ -11,6 +11,25 @@
 | `assets/portraits.png` | 2 列 × 2 行，依次为澪、栞、莲、凪 |
 | `assets/sprites.png` | 4 列角色为澪、栞、莲、凪；4 行朝向为南、西、东、北；保留真实透明通道 |
 | `assets/tileset.png` | 8 列 × 8 行的经典俯视 2D 地块；草地、道路、屋顶、墙体、水面和家具；实际游戏地图由地块拼成 |
+| `assets/terrain-variety.png` | 制作过程保留的 32 格地面变体；正式地图改为统一使用 tileset.png 同材质底纹，不混铺此图 |
+| `assets/foliage-variety.png` | 新增 4 列 × 4 行透明植被：8 种乔木 / 竹丛，绣球、野花、山茶、蕨类、芦苇、苔石、盆栽与落叶 |
+
+## 场景丰富化 · 2026-11-16
+
+使用内置 image_gen 制作以下两张新图集，以既有 tileset.png 作为风格参考，未覆盖既有原图。正式游戏接入透明植被，通过植物层叠和树冠遮挡丰富场景；地面仍统一使用既有 tileset.png 底纹，仅增加稀疏、低对比的小细节。
+
+### terrain-variety.png
+
+```
+Use case: stylized-concept. Asset type: additional seamless ground-tile atlas for an existing original classic 2D top-down Japanese RPG. Input image: reference ONLY for pixel style, scale and muted blue-green / moss / warm wood palette; create a new atlas. EXACT 8 columns by 4 rows of equal square cells, no gutters, no margins, no labels, no lettering. Landscape 2:1 overall. Every cell is ONE full-bleed seamless repeatable FLOOR texture, perfectly overhead. Authentic 16-bit pixel-art clusters, small crisp details, restrained contrast, NO isometric view, NO objects, NO buildings, NO characters, NO perspective. Each row has EIGHT related variants so adjacent variants fit naturally and share exactly the same edge colors. Row1 eight grass textures, all muted moss/emerald green base: fine short grass; clover-speckled grass; uneven wild lawn; scattered little white flowers in grass; scattered tiny yellow wildflowers in grass; subtle damp moss grass; grass with sparse small pebbles; grass with sparse scattered pink petals. Row2 eight old grey green STONE PAVING textures with matching edge colors: clean worn square stone; slightly cracked square stone; moss in paving joints; small wet paving patch; a few scattered leaves on paving; stone with pink petals; dirt-stained old paving; lightly weathered uneven paving. Row3 eight EARTH / NATURE textures with similar dark earth at borders: packed brown soil; pebbled footpath; gravel with tiny weeds; rich leaf-litter forest floor; damp brown soil with small puddles; soft mossy dirt; compacted sandy earth; dirt and fine exposed roots. Row4 eight muted indoor or courtyard ground textures: warm old wooden boards clean; same boards with scuff marks; same boards with faded scratches; same boards slightly dusty; dark slate floor clean; dark slate with fine cracks; dark slate with moss flecks; dark slate with rain-damp patches. Flat even lighting across every cell; readable when reduced to 32 or 48 screen pixels. NO black grid borders. No watermark.
+```
+
+### foliage-variety.png
+
+```
+Use case: stylized-concept. Asset type: transparent vegetation sprite atlas for an existing original classic 2D top-down Japanese RPG. Input image: reference ONLY for pixel-art style and palette. Create a new genuine transparent PNG atlas of EXACT 4 columns by 4 rows, sixteen equal square cells, no gutters or labels. Each cell contains ONE complete isolated plant sprite centered horizontally, with its ground contact at 88% down the cell, generous transparent margin, no clipping, no floor patch, no checkerboard painted in the image. Orthographic 3/4 overhead classic 16-bit RPG sprite perspective with visible treetops, crisp pixel clusters, sophisticated muted greens, seasonal pinks amber and vermilion, cohesive with a Japanese village at blue hour. Row1 columns1-4: a broad mature green camphor tree with visible small trunk; a red-orange Japanese maple with spreading crown and trunk; an amber yellow ginkgo with fan-shaped canopy; a pale pink cherry blossom tree with gracefully spreading crown. Row2 columns1-4: tall graceful green bamboo cluster; dark evergreen conifer; a soft drooping willow tree; a sculptural small Japanese pine. Row3 columns1-4: lush blue-purple hydrangea shrub; small white and yellow wildflower clump; a compact red camellia flowering shrub; three delicate ferns. Row4 columns1-4: a clump of tall grasses and river reeds; two moss-covered stones with little plants; a terracotta pot of leafy green foliage and tiny cream flowers; sparse fallen pink petals and amber leaves scattered as a ground decoration. Trees in rows1-2 occupy most of their equal cell and show crown and trunk, shrubs and smaller objects in rows3-4 occupy central 65% with all ground contacts on the same 88% baseline. Every sprite is isolated and not connected to adjacent cells, no shadows crossing cell boundaries. Transparent background, no words, no frame, no watermark.
+```
+
 
 ## tileset.png · 经典俯视 2D 地块
 

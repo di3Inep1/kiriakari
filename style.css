@@ -38,3 +38,12 @@
 .chapter-splash{z-index:210}.transition{z-index:220}
 @media(max-width:700px){.world{height:360px;min-height:320px;aspect-ratio:auto}.object-label{font-size:8px}.scene-bottom{z-index:200}.game-layout{padding-top:17px}.scene-label div>span{font-size:6px}.phase-button{min-width:111px}.touch-controls{padding-top:11px}}
 @media(max-height:730px) and (min-width:701px){.world{height:58vh;min-height:330px;aspect-ratio:auto}}
+
+/* Vegetation shares the actors' depth order: canopies naturally cover the far side. */
+#scenery{pointer-events:none}
+.scenery-sprite{position:absolute;width:calc(var(--tile-size)*var(--plant-scale));height:calc(var(--tile-size)*var(--plant-scale));transform:translate(-50%,-96%);pointer-events:none;isolation:isolate}
+.scenery-art{position:absolute;inset:0;background:url('assets/foliage-variety.png') 0 0/400% 400% no-repeat;image-rendering:pixelated;filter:brightness(.84) saturate(.83);transition:filter 1s}
+.scenery-shadow{position:absolute;left:23%;right:23%;height:7%;bottom:3%;background:#05161e69;border-radius:50%;filter:blur(2px);z-index:-1}
+.scenery-sprite.tree .scenery-shadow{height:10%;left:15%;right:15%;bottom:2%;background:#06151988;filter:blur(4px)}
+.world.echo .scenery-art{filter:brightness(.92) saturate(.57) hue-rotate(8deg)}
+.scenery-sprite.leaves .scenery-art{opacity:.4}
