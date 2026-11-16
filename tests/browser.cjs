@@ -96,6 +96,39 @@ async function main() {
   await click('#map-button'); assert.equal(await evaluate("document.querySelector('[data-zone=town]').disabled"), true); await click('#modal-close');
   results.push('Prologue, lantern, gated map and recovering an initially declined promise');
   console.log('Prologue passed');
+  await waitFor("document.getElementById('player').classList.contains('has-walk-sheet')");
+  await evaluate(`(()=>{
+    window.__movementTrace=[];window.__traceWalking=true;
+    const sample=t=>{const p=document.getElementById('player');window.__movementTrace.push({t,x:+p.dataset.visualX,y:+p.dataset.visualY,frame:+p.dataset.walkFrame,walking:p.classList.contains('walking')});if(window.__traceWalking)requestAnimationFrame(sample);};requestAnimationFrame(sample);
+  })()`);
+  const movementStart=await evaluate('performance.now()');
+  await send('Input.dispatchKeyEvent',{type:'keyDown',key:'d',code:'KeyD'});await pause(55);
+  await send('Input.dispatchKeyEvent',{type:'keyDown',key:'w',code:'KeyW'});await pause(220);
+  await send('Input.dispatchKeyEvent',{type:'keyUp',key:'w',code:'KeyW'});await pause(210);
+  const movementRelease=await evaluate('performance.now()');
+  await send('Input.dispatchKeyEvent',{type:'keyUp',key:'d',code:'KeyD'});await pause(200);
+  const trace=await evaluate('window.__traceWalking=false;window.__movementTrace');
+  const movingFrames=trace.filter(p=>p.walking);
+  assert.ok(movingFrames.length>8);assert.deepEqual([...new Set(movingFrames.map(p=>p.frame))].sort(),[0,1,2]);
+  for(let i=1;i<trace.length;i++){assert.ok(trace[i].x>=trace[i-1].x-.00001,'Turning never rewinds horizontal motion');assert.ok(trace[i].y<=trace[i-1].y+.00001,'Turning never rewinds vertical motion');}
+  const between=trace.filter(p=>p.t>movementStart+40&&p.t<movementRelease-25);
+  assert.ok(between.every(p=>p.walking),'Continuous input has no tile-boundary idle frame');
+  assert.equal(await evaluate("document.getElementById('player').dataset.walkFrame"),'1');
+  assert.equal(await evaluate("document.getElementById('player').classList.contains('walking')"),false);
+  results.push('Rapid mid-step turn has no rollback or boundary pause; both stride frames play and idle settles');
+  console.log('Movement and walk frames passed');
+  if(process.argv.includes('--movement-only')){
+    for(const [key,code,facing] of [['s','KeyS',0],['a','KeyA',1],['d','KeyD',2],['w','KeyW',3]]){
+      await send('Input.dispatchKeyEvent',{type:'keyDown',key,code});await pause(180);
+      assert.equal(await evaluate("+document.getElementById('player').dataset.facing"),facing);
+      assert.match(await evaluate("getComputedStyle(document.querySelector('#player .sprite')).backgroundImage"),/mio-walk-v2/);
+      await send('Input.dispatchKeyEvent',{type:'keyUp',key,code});await pause(180);
+      assert.equal(await evaluate("document.getElementById('player').dataset.walkFrame"),'1');
+    }
+    await screenshot('preview-movement.png');
+    console.log(JSON.stringify({passed:true,results,errors,walkSheet:'assets/mio-walk-v2.png',directions:4},null,2));
+    assert.deepEqual(errors,[]);await send('Browser.close');return;
+  }
   await echo(); await object('timetable');
   assert.equal(await evaluate("getComputedStyle(document.querySelector('#object-photo .object-marker')).animationName"),'interaction-glint');
   assert.equal(await evaluate("getComputedStyle(document.querySelector('#object-photo .object-marker')).width"),'7px');
@@ -178,6 +211,7 @@ async function main() {
   await evaluate("document.getElementById('world').focus()"); const before = (await saved()).player.x;
   await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'd', code: 'KeyD' }); await pause(500);
   await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'd', code: 'KeyD' });
+  await pause(180);
   assert.ok(Number.isInteger((await saved()).player.x));
   assert.notEqual((await saved()).player.x, before);
   assert.equal(await evaluate("KiriMaps.walkable(document.getElementById('world').dataset.zone,+document.getElementById('player').dataset.tileX,+document.getElementById('player').dataset.tileY)"), true);
@@ -196,7 +230,7 @@ async function main() {
   results.push('Grid keyboard movement, blocked bridge railing, Q, mobile camera with no overflow, ending gallery');
   assert.deepEqual(errors, []);
   // Verify all referenced art exists and the character sheet really has an alpha channel.
-  for (const name of ['title', 'world-atlas', 'portraits', 'sprites', 'tileset', 'terrain-variety', 'foliage-variety', 'mounted-props', 'world-props', 'stone-grain']) { const response = await fetch(`${base}/assets/${name}.png`); assert.equal(response.status, 200); }
+  for (const name of ['title', 'world-atlas', 'portraits', 'sprites', 'tileset', 'terrain-variety', 'foliage-variety', 'mounted-props', 'world-props', 'stone-grain', 'mio-walk', 'mio-walk-v2']) { const response = await fetch(`${base}/assets/${name}.png`); assert.equal(response.status, 200); }
   const sprite = fs.readFileSync(path.join(ROOT, 'assets/sprites.png')); assert.equal(sprite[25], 6);
   const foliage = fs.readFileSync(path.join(ROOT,'assets/foliage-variety.png')); assert.equal(foliage[25],6);
   assert.equal(await evaluate("KiriMaps.maps.town.scenery.length > 50 && KiriMaps.maps.shrine.scenery.length > 40"),true);

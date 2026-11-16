@@ -66,3 +66,8 @@
 .object.inspect:hover .object-marker,.object.puzzle:hover .object-marker,.object.memory:hover .object-marker,.object.inspect.near .object-marker,.object.puzzle.near .object-marker,.object.memory.near .object-marker{border:0;background:none;box-shadow:none}
 @keyframes interaction-glint{0%,100%{opacity:.28;filter:brightness(.85)}45%,60%{opacity:.95;filter:brightness(1.18)}}
 @media(prefers-reduced-motion:reduce){.object.inspect .object-marker,.object.puzzle .object-marker,.object.memory .object-marker{animation:none;opacity:.75}.object.collected .object-marker,.object.solved .object-marker{opacity:0}.object.read .object-marker{opacity:.25}}
+
+/* Three genuine poses for each facing: left stride, neutral, right stride. */
+.player.has-walk-sheet{height:calc(var(--tile-size)*1.38);width:calc(var(--tile-size)*1.38*var(--walk-ratio));aspect-ratio:auto}
+.player.has-walk-sheet .sprite{background-image:url('assets/mio-walk-v2.png');background-size:300% 400%;top:10%;bottom:-10%;animation:none;transform:none}
+.player.has-walk-sheet.walking .sprite{animation:none;transform:none}

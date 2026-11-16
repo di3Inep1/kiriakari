@@ -16,6 +16,22 @@
 | `assets/mounted-props.png` | 2 × 2 透明组合物件：长椅与照片、书桌与手记、书桌与录音机、屋檐与悬挂纸鹤 |
 | `assets/world-props.png` | 4 × 2 透明场景物件：灯、告示、石碑、齿轮、桌、记录柜、钟、神龛；没有附带地砖底块 |
 | `assets/stone-grain.png` | 统一石材颗粒底纹；由地图坐标上的连续砖缝结构取样，避免格子接缝错位 |
+| `assets/mio-walk.png` | 主角行走图集初稿，保留作制作记录 |
+| `assets/mio-walk-v2.png` | 正式四方向行走图集，3 列 × 4 行：左右迈步与站姿，透明背景 |
+
+## 主角行走帧 · 2026-11-16
+
+正式版本额外修正了南北朝向的第三帧腿部动作。内置 image_gen 的定向修改提示词：
+
+```
+Edit target: the provided 768x2048 transparent RPG walking sheet. It has an exact 3-column x 4-row grid, each cell256x512. Make ONLY this correction: in ROW1 COLUMN3 (bottom of sprite around x610-688 y390-460) and ROW4 COLUMN3 (bottom of sprite around x610-688 y1910-1988), change the LEG POSE to be the OPPOSITE step to column1 in the same row. Current column3 repeats column1's right-side boot extending downward. In those TWO sprites, the LEFT-SIDE boot on the image must extend FORWARD / DOWN, while the RIGHT-SIDE boot retracts UP. Counter-swing the arms subtly if needed. The two boot tips must have clearly opposite vertical ordering versus column1. Keep the heads, face, hairstyle, coat, red shoulder bag, colors, body alignment, cell grid and ALL OTHER TEN FRAMES unchanged. Keep the exact same 768x2048 canvas and sprite placements. Preserve a genuinely transparent background, no background colors, no shadows, no text, no grid lines. This is a tiny precise animation correction, not a new character or a redesign.
+```
+
+使用内置 image_gen，以 sprites.png 中第一列主角作为身份和风格参考，生成独立透明图集。原始角色图集保留，其他 NPC 继续使用原图。
+
+```
+Use case: stylized-concept. Asset type: genuine 12-FRAME WALK CYCLE SPRITE SHEET for the heroine of an existing classic 2D overhead Japanese RPG. Input image is identity and style reference ONLY: use ONLY the FIRST COLUMN character, Mio, the young woman with short black bob hair, cream coat, white shirt, dark navy skirt, dark boots and small red shoulder satchel. Do NOT draw the other three people. Create an EXACT 3 COLUMNS by 4 ROWS sheet, 12 equal rectangular cells, each cell TWICE as tall as it is wide, entire sheet portrait aspect ratio 3:8, true transparent background, no gutters, no outlines around cells, no text. Each row is ONE facing direction: row1 SOUTH facing viewer; row2 WEST facing left; row3 EAST facing right; row4 NORTH showing back. Three columns are three DISTINCT animation frames: column1 LEFT FOOT FORWARD with right foot BACK, left/right arms counter-swing clearly; column2 NEUTRAL STANDING pose with both feet together and arms relaxed; column3 RIGHT FOOT FORWARD with left foot BACK and opposite arm swing. These must be actual different limb poses, not identical duplicates. Classic 16-bit RPG walking, short readable steps, not running, no large body tilt. Keep the face, hair silhouette, clothes, satchel, body size and HEAD POSITION identical across the 3 frames in each row. All 12 figures fully visible inside their own equal cells, centered horizontally, same foot-ground baseline at 94% of cell height, transparent padding around every frame, no overlap. Crisp small pixel clusters and palette exactly like the reference. Produce a tall 3x4 grid with 1:2 cells, not square cells, no margins, no labels, no characters other than Mio, no watermarks, no fake checkerboard background. Genuine transparent PNG.
+```
 
 ## 物件承载与连续砖缝 · 2026-11-16
 

@@ -1,11 +1,14 @@
 (function () {
   'use strict';
-  const C = window.KiriCore, D = window.KiriData, S = window.KiriSound, M = window.KiriMaps, R = window.KiriRenderer;
+  const C = window.KiriCore, D = window.KiriData, S = window.KiriSound, M = window.KiriMaps, R = window.KiriRenderer, Move = window.KiriMovement;
   const $ = id => document.getElementById(id);
   const KEYS = { auto: 'kiriakari.save.v1', manual: 'kiriakari.manual.v1', checkpoint: 'kiriakari.bridge.v1', collection: 'kiriakari.endings.v1', settings: 'kiriakari.settings.v1' };
   let state = null, screen = 'title', modalKind = null, modalReturnFocus = null, dialogueReturnFocus = null;
   let target = null, pendingObject = null, nearest = null, lastFrame = performance.now(), saveTick = 0, lastWalk = false;
-  let route = [], step = null;
+  let route = [], movementSavePending = false, walkSheetReady = false;
+  const motion=Move.create(),walkSheet=new Image();
+  walkSheet.onload=()=>{walkSheetReady=true;$('player').classList.add('has-walk-sheet');$('player').style.setProperty('--walk-ratio',(walkSheet.naturalWidth/3)/(walkSheet.naturalHeight/4));};
+  walkSheet.src='assets/mio-walk-v2.png';
   let dialogueLines = [], dialogueIndex = 0, dialogueEnd = null, typeTimer = null, typing = false, currentText = '';
   let toastTimer = null, splashTimer = null, transitionTimer = null, transitioning = false, puzzle = null, storageWarning = false;
   const keys = new Set();
@@ -41,7 +44,7 @@
   }
   function setScreen(next) {
     clearTimeout(toastTimer); $('toast-region').replaceChildren();
-    screen = next; keys.clear(); target = null; pendingObject = null; nearest = null; route = []; step = null;
+    screen = next; keys.clear(); target = null; pendingObject = null; nearest = null; route = []; Move.reset(motion);movementSavePending=false;
     $('title-screen').hidden = next !== 'title'; $('game-screen').hidden = next !== 'play'; $('ending-screen').hidden = next !== 'ending';
     document.title = next === 'ending' && state?.ending ? `${D.endings[state.ending].name} · 雾灯町` : '雾灯町：第十三次钟声';
   }
@@ -97,14 +100,17 @@
     nearest = null; updatePlayer(false); updateNearest();
   }
   function visibleObjects() { return D.zones[state.zone].objects.filter(obj => !obj.phase || obj.phase === state.phase); }
-  function updatePlayer(walking, visual = state?.player) {
+  function updatePlayer(walking, visual = state?Move.visual(motion,state.player):null) {
     if (!state) return;
     const player = $('player'), point = R.project(visual); player.style.left = point.x + 'px'; player.style.top = point.y + 'px';
     player.dataset.tileX = state.player.x; player.dataset.tileY = state.player.y;
     $('world').dataset.zone = state.zone;
     player.style.zIndex = String(Math.round(visual.y * 5) + 10);
-    player.querySelector('.sprite').style.backgroundPosition = `0% ${state.player.facing * 100 / 3}%`;
-    if (walking !== lastWalk) player.classList.toggle('walking', walking && !reducedMotion);
+    const frame=walking?motion.frame:1;
+    player.querySelector('.sprite').style.backgroundPosition = `${walkSheetReady?frame*50:0}% ${state.player.facing * 100 / 3}%`;
+    player.dataset.walkFrame=String(frame);player.dataset.facing=String(state.player.facing);
+    player.dataset.visualX=visual.x.toFixed(6);player.dataset.visualY=visual.y.toFixed(6);
+    if (walking !== lastWalk) player.classList.toggle('walking', walking);
     lastWalk = walking;
     visibleObjects().forEach(obj => {
       const el = $(`object-${obj.id}`), position = R.project({x:obj.x+(obj.focusOffset?.x||0),y:obj.y+(obj.focusOffset?.y||0)});
@@ -128,14 +134,14 @@
   }
   function approach(obj) {
     if (screen !== 'play' || modalKind || !$('dialogue').hidden || transitioning) return;
-    if (Math.abs(obj.x - state.player.x) + Math.abs(obj.y - state.player.y) <= 1) return interact(obj);
-    const plan = M.approach(state.zone, state.player, obj);
+    if (!motion.step&&Math.abs(obj.x - state.player.x) + Math.abs(obj.y - state.player.y) <= 1) return interact(obj);
+    const plan = M.approach(state.zone, motion.step?.to||state.player, obj);
     if (!plan) return toast('这边被挡住了。试着从另一侧靠近。');
-    clearTarget(); route = plan.path; target = plan.point; pendingObject = obj; showClickTarget(target);
+    clearTarget(false); route = plan.path; target = plan.point; pendingObject = obj; showClickTarget(target);
     $('world').focus({ preventScroll: true });
   }
   function showClickTarget(point) { const p = R.project(point); $('click-target').hidden = false; $('click-target').style.left = p.x + 'px'; $('click-target').style.top = p.y + 'px'; }
-  function clearTarget() { target = null; pendingObject = null; route = []; step = null; $('click-target').hidden = true; }
+  function clearTarget(stopStep=true) { target = null; pendingObject = null; route = []; if(stopStep)Move.reset(motion); $('click-target').hidden = true; }
   function changeZone(id) {
     if (!C.canVisit(state, id)) {
       const reasons = { town: '检票闸门还没有打开。先调查车站的机关。', shrine: '先打开车站的检票闸门。', archive: '书库的门印着四盏灯。先解开月见神社的灯阵。', tower: '通向钟楼的楼梯被封住了。记录柜里也许有钥匙。', river: '通向渡灯桥的雾太浓。让钟楼重新转动，雾才会散去。' };
@@ -156,7 +162,7 @@
   function togglePhase() {
     if (screen !== 'play' || modalKind || !$('dialogue').hidden || transitioning) return;
     if (!state.flags.lantern) return toast('先和站台上的莲交谈，取得引灯。');
-    clearTarget(); state.phase = state.phase === 'echo' ? 'present' : 'echo';
+    clearTarget(false); state.phase = state.phase === 'echo' ? 'present' : 'echo';
     S.phase(state.phase === 'echo'); renderWorld(); save();
     if (!state.seen.includes('echo-tutorial')) {
       state.seen.push('echo-tutorial');
@@ -478,15 +484,16 @@
     if (e.target.closest('button') || modalKind || !$('dialogue').hidden || transitioning) return;
     const rect = $('world').getBoundingClientRect();
     const goal = R.unproject(e.clientX - rect.left, e.clientY - rect.top);
-    const path = M.walkable(state.zone, goal.x, goal.y) ? M.findPath(state.zone, state.player, goal) : M.approach(state.zone, state.player, goal)?.path;
-    clearTarget();
+    const from=motion.step?.to||state.player;
+    const path = M.walkable(state.zone, goal.x, goal.y) ? M.findPath(state.zone, from, goal) : M.approach(state.zone, from, goal)?.path;
+    clearTarget(false);
     if (path?.length) { route = path; target = path.at(-1); showClickTarget(target); }
     $('world').focus({ preventScroll: true });
   });
   document.querySelectorAll('[data-move]').forEach(button => {
     const code = { up: 'arrowup', down: 'arrowdown', left: 'arrowleft', right: 'arrowright' }[button.dataset.move];
-    button.addEventListener('pointerdown', e => { if (modalKind || !$('dialogue').hidden) return; e.preventDefault(); clearTarget(); keys.add(code); button.setPointerCapture(e.pointerId); });
-    const release = () => { keys.delete(code); if (state) save(); };
+    button.addEventListener('pointerdown', e => { if (modalKind || !$('dialogue').hidden) return; e.preventDefault(); clearTarget(false); keys.add(code); button.setPointerCapture(e.pointerId); });
+    const release = () => { if(keys.delete(code))movementSavePending=true; };
     button.addEventListener('pointerup', release); button.addEventListener('pointercancel', release); button.addEventListener('lostpointercapture', release);
   });
   document.addEventListener('keydown', e => {
@@ -512,7 +519,7 @@
     if (screen !== 'play') return;
     if (['w', 'a', 's', 'd', 'arrowup', 'arrowleft', 'arrowdown', 'arrowright'].includes(key)) {
       if (document.activeElement?.tagName === 'BUTTON') { $('world').focus({ preventScroll: true }); }
-      e.preventDefault(); if (!transitioning) { if (!keys.has(key)) clearTarget(); keys.add(key); } return;
+      e.preventDefault(); if (!transitioning) { if (!keys.has(key)) clearTarget(false); keys.add(key); } return;
     }
     if (e.repeat) return;
     if (key === 'e' || (key === 'enter' && document.activeElement?.tagName !== 'BUTTON')) { e.preventDefault(); updateNearest(); interact(nearest); }
@@ -521,7 +528,7 @@
     else if (key === 'm') { e.preventDefault(); openMap(); }
     else if (key === 'escape') openSettings();
   });
-  document.addEventListener('keyup', e => { if (keys.delete(e.key.toLowerCase()) && state) save(); });
+  document.addEventListener('keyup', e => { if (keys.delete(e.key.toLowerCase()) && state) movementSavePending=true; });
   window.addEventListener('blur', () => { keys.clear(); clearTarget(); if (state) save(); });
   window.addEventListener('pagehide', save);
   document.addEventListener('visibilitychange', () => { keys.clear(); clearTarget(); lastFrame = performance.now(); if (state) save(); });
@@ -552,34 +559,21 @@
     const dt = Math.min((now - lastFrame) / 1000, .05); lastFrame = now;
     if (screen === 'play' && state && !document.hidden) {
       if (!modalKind && $('dialogue').hidden && !transitioning) {
-        let dx = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
-        let dy = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0);
-        if (!step) {
-          let next = null;
-          if (dx || dy) {
-            if (dx && dy) dy = 0;
-            state.player.facing = dx ? (dx < 0 ? 1 : 2) : (dy < 0 ? 3 : 0);
-            const point = { x: state.player.x + dx, y: state.player.y + dy };
-            if (M.walkable(state.zone, point.x, point.y)) next = point;
-          } else if (route.length) next = route.shift();
-          else if (target) { const object = pendingObject; clearTarget(); if (object) interact(object); save(); }
-          if (next) {
-            const x = next.x - state.player.x, y = next.y - state.player.y;
-            state.player.facing = x ? (x < 0 ? 1 : 2) : (y < 0 ? 3 : 0);
-            step = { from: { x: state.player.x, y: state.player.y }, to: next, progress: 0 };
-          }
-        }
-        if (step) {
-          step.progress = Math.min(1, step.progress + dt / .13);
-          if (step.progress >= 1) {
-            state.player.x = step.to.x; state.player.y = step.to.y; step = null; updateNearest();
-            const exit = visibleObjects().find(o => o.mark === 'exit' && o.x === state.player.x && o.y === state.player.y);
-            if (exit) interact(exit);
-          }
-        }
+        Move.advance(motion,state.player,dt,()=>{
+          if(modalKind||!$('dialogue').hidden||transitioning)return null;
+          const direction=Move.direction(keys);
+          if(direction){state.player.facing=direction.facing;const next={x:state.player.x+direction.dx,y:state.player.y+direction.dy};return M.walkable(state.zone,next.x,next.y)?next:null;}
+          if(route.length)return route.shift();
+          if(target){const object=pendingObject;clearTarget();if(object)interact(object);save();}
+          return null;
+        },()=>{
+          updateNearest();const exit=visibleObjects().find(o=>o.mark==='exit'&&o.x===state.player.x&&o.y===state.player.y);
+          if(exit){interact(exit);return false;}return true;
+        });
       }
-      const visual = step ? { x: step.from.x + (step.to.x - step.from.x) * step.progress, y: step.from.y + (step.to.y - step.from.y) * step.progress } : state.player;
-      R.draw(state.zone, visual, now, state.phase); updatePlayer(!!step, visual); paintAtmosphere(now);
+      const visual=Move.visual(motion,state.player),walking=motion.walking&&!modalKind&&$('dialogue').hidden&&!transitioning;
+      R.draw(state.zone, visual, now, state.phase); updatePlayer(walking, visual); paintAtmosphere(now);
+      if(movementSavePending&&!motion.walking){movementSavePending=false;save();}
       state.elapsed += dt; saveTick += dt; if (saveTick >= 12) { saveTick = 0; save(); }
     }
     requestAnimationFrame(loop);
