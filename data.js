@@ -61,7 +61,7 @@
     {id:'duty-log',name:'站务值班簿',action:'duty-log',mark:'inspect',support:'duty-desk',focusOffset:{x:0,y:-.65}},
     {id:'parcel',name:'未送达的包裹',action:'parcel',mark:'inspect',support:'parcel-shelf',focusOffset:{x:0,y:-.6}},
     {id:'lighting-table',name:'整灯台',action:'lighting-table',mark:'inspect',support:'lighting-desk',focusOffset:{x:0,y:-.55}},
-    {id:'office-window',name:'朝向站台的旧窗',action:'office-window',mark:'inspect'},
+    {id:'office-window',name:'朝向站台的旧窗',action:'office-window',mark:'inspect',support:'office-window-main'},
     {id:'office-exit',name:'返回站台',action:'go-station',mark:'exit'}
   ]};
   zones['town-workshop']={name:'凪家的制灯铺',reading:'NAGI’S LANTERN WORKSHOP',sub:'竹篾与米糊，能把断开的灯纸重新连起来。',atlas:[1,1],parent:'town',returnAt:[7,9],links:['town'],objects:[

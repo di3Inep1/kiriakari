@@ -170,3 +170,29 @@ test('old interior saves relocate to the resized room entrance without losing ex
     assert.equal(r.zone,zone);assert.deepEqual(r.player,{x:spawn[0],y:spawn[1],facing:0});assert.ok(C.hasItem(r,'redThread'));assert.ok(r.clues.includes('dutyLog'));assert.ok(r.memories.includes('photo'));assert.equal(r.flags.lantern,true);
   }
 });
+
+test('interior furniture is rectangular integer-cell prefabs with collision derived from the same box',()=>{
+  for(const zone of ['station-office','town-workshop']){
+    const map=M.maps[zone],occupied=new Set();
+    for(const prop of map.props){const g=prop.grid;assert.ok(g,zone+'/'+prop.id+' uses a prefab');assert.equal('size' in prop,false);
+      for(const value of [g.x,g.y,g.w,g.d,g.h,g.top])assert.ok(Number.isInteger(value));
+      if(prop.mount)continue;assert.equal(g.top+g.h,g.y+g.d);
+      for(let y=g.y;y<g.y+g.d;y++)for(let x=g.x;x<g.x+g.w;x++){const cell=x+','+y;assert.equal(occupied.has(cell),false,'Furniture must not overlap');occupied.add(cell);assert.equal(map.solids[y*map.w+x],true);}
+    }
+    for(const mat of map.tatami)for(const value of [mat.x,mat.y,mat.width,mat.height])assert.ok(Number.isInteger(value));
+  }
+});
+test('the full interior floor is connected and the two-cell main aisles stay clear',()=>{
+  for(const zone of ['station-office','town-workshop']){
+    const map=M.maps[zone],from={x:map.spawn[0],y:map.spawn[1]},a=map.areas.aisle;
+    for(let y=a.y;y<a.y+a.height;y++)for(let x=a.x;x<a.x+a.width;x++)assert.equal(M.walkable(zone,x,y),true,'Main aisle stays clear');
+    for(let y=0;y<map.h;y++)for(let x=0;x<map.w;x++)if(M.walkable(zone,x,y))assert.ok(x===from.x&&y===from.y||M.findPath(zone,from,{x,y}).length,'No inaccessible floor pocket at '+zone+'/'+x+','+y);
+  }
+});
+test('furniture placement rejects fractional origins and overlapping boxes',()=>{
+  const F=require('../furniture.js'),map={w:8,h:8,props:[],solids:Array(64).fill(false)};
+  assert.throws(()=>F.place(map,'bad','stool',1.5,2),/integer/);
+  F.place(map,'table','repairTable',1,1);assert.throws(()=>F.place(map,'overlap','stool',2,2),/Overlapping/);
+  assert.throws(()=>F.place(map,'outside','waitingBench',7,1),/outside/);
+  F.place(map,'window','shojiWindow',4,1);assert.throws(()=>F.place(map,'overlapping-lamp','wallLamp',5,2),/wall fixtures/);
+});

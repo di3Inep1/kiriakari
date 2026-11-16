@@ -79,7 +79,11 @@ async function main() {
     await pause(100); await drain();
   };
   const echo = async () => { if (!(await saved()).flags.lantern) throw new Error('No lantern'); if ((await saved()).phase !== 'echo') await click('#phase-button'); };
-  const travel=async(id,zone)=>{await click('#object-'+id);await waitFor(`document.getElementById('world').dataset.zone===${JSON.stringify(zone)}`);await pause(100);};
+  const assertFurnitureGrid=async()=>{
+    const entries=await evaluate(`(()=>{const v=KiriRenderer.view,m=KiriMaps.maps[v.zone];return m.props.filter(p=>p.grid).map(p=>{const node=document.querySelector('[data-prop="'+p.id+'"]'),g=p.grid,r=node.getBoundingClientRect();return {id:p.id,w:r.width,h:r.height,left:parseFloat(node.style.left),top:parseFloat(node.style.top),expected:[g.w*v.tile,g.h*v.tile,Math.round((g.x-v.x)*v.tile),Math.round((g.top-v.y)*v.tile)]};});})()`);
+    assert.ok(entries.length>0);for(const e of entries)assert.deepEqual([e.w,e.h,e.left,e.top],e.expected,'Visible sprite stays inside its defined tile rectangle: '+e.id);
+  };
+  const travel=async(id,zone)=>{await click('#object-'+id);await waitFor(`document.getElementById('world').dataset.zone===${JSON.stringify(zone)}`);await pause(100);if(['station-office','town-workshop'].includes(zone))await assertFurnitureGrid();};
   await send('Runtime.enable'); await send('Log.enable'); await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 960, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: base });
@@ -93,7 +97,16 @@ async function main() {
       await send('Page.navigate',{url:base});await waitFor('!!window.KiriExploration');
       await evaluate(`(()=>{const s=KiriCore.newGame();s.zone=${JSON.stringify(zone)};s.player={x:9,y:8,facing:0};if(s.zone==='town-workshop'){KiriCore.setFlag(s,'lantern');KiriCore.solvePuzzle(s,'station',[0,7,1,6]);KiriCore.setFlag(s,'helpedNagi');}localStorage.setItem('kiriakari.save.v1',JSON.stringify(s));})()`);
       await send('Page.reload');await waitFor("!!window.KiriExploration && !!document.getElementById('continue-game')&&!document.getElementById('continue-game').disabled");await click('#continue-game');
-      await waitFor(`document.getElementById('world').dataset.zone===${JSON.stringify(zone)}`);await pause(900);await screenshot(file);
+      await waitFor(`document.getElementById('world').dataset.zone===${JSON.stringify(zone)}`);await pause(900);await assertFurnitureGrid();await screenshot(file);
+      if(process.argv.includes('--footprints')){
+        await evaluate(`(()=>{
+          const v=KiriRenderer.view,m=KiriMaps.maps[v.zone],c=document.createElement('canvas');c.id='qa-grid';c.width=v.width;c.height=v.height;Object.assign(c.style,{position:'absolute',inset:'0',zIndex:'9500',pointerEvents:'none'});document.getElementById('world').appendChild(c);const p=c.getContext('2d');
+          p.strokeStyle='rgba(206,237,233,.2)';p.lineWidth=1;for(let x=0;x<=m.w;x++){p.beginPath();p.moveTo((x-v.x)*v.tile,-v.y*v.tile);p.lineTo((x-v.x)*v.tile,(m.h-v.y)*v.tile);p.stroke();}for(let y=0;y<=m.h;y++){p.beginPath();p.moveTo(-v.x*v.tile,(y-v.y)*v.tile);p.lineTo((m.w-v.x)*v.tile,(y-v.y)*v.tile);p.stroke();}
+          const a=m.areas.aisle;p.fillStyle='rgba(89,180,149,.17)';p.fillRect((a.x-v.x)*v.tile,(a.y-v.y)*v.tile,a.width*v.tile,a.height*v.tile);
+          p.font='bold 12px sans-serif';for(const o of m.props){const g=o.grid;if(!g||!g.d)continue;const x=(g.x-v.x)*v.tile,y=(g.y-v.y)*v.tile;p.fillStyle='rgba(232,190,99,.13)';p.fillRect(x,y,g.w*v.tile,g.d*v.tile);p.strokeStyle='#e7c889';p.strokeRect(x+.5,y+.5,g.w*v.tile-1,g.d*v.tile-1);p.fillStyle='#142127';p.fillRect(x+2,y+2,34,17);p.fillStyle='#ffe1a7';p.fillText(g.w+'×'+g.d,x+5,y+15);}
+        })()`);
+        await screenshot(file.replace('.png','-grid.png'));await evaluate("document.getElementById('qa-grid').remove()");
+      }
     }
     assert.deepEqual(errors,[]);console.log('Interior floors captured; no browser errors');await send('Browser.close');return;
   }

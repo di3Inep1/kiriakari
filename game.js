@@ -123,7 +123,7 @@
       const el = $(`object-${obj.id}`), position = R.project(M.focusPoint(state.zone,obj));
       if (el) {
         const prop=obj.support&&M.maps[state.zone].props.find(p=>p.id===obj.support),pose=prop&&M.attachmentPose(state.zone,prop);
-        el.style.left=position.x+'px';el.style.top=position.y+'px';el.style.zIndex=String(pose?R.depth(pose.building.frontY-.92,3):R.depth(obj.y,obj.character!==undefined?0:3));
+        el.style.left=position.x+'px';el.style.top=position.y+'px';el.style.zIndex=String(prop?.grid?R.depth(prop.grid.y+(prop.grid.d||1)-.92,3):pose?R.depth(pose.building.frontY-.92,3):R.depth(obj.y,obj.character!==undefined?0:3));
       }
     });
     if (target) showClickTarget(target);
