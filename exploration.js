@@ -29,7 +29,7 @@
     const note=text=>talk([{text}]);
     const light=()=>{
       if(state.flags.lantern)return note('引灯已经亮着。灯芯燃得很稳，不必再次消耗火种。');
-      if(!state.flags.lampFound)return note('整灯台上留着刷子和空灯油壶。先看看西侧矮柜，那盏旧引灯还没有被取走。');
+      if(!state.flags.lampFound)return note('整灯台放着油壶和备用灯芯，火柴槽里只剩用过的旧杆。先看看西侧矮柜，那盏旧引灯还没有被取走。');
       if(!has('dryMatches'))return note(has('lockerKey')?'灯芯是干的，只差火种。站台东端的维修箱里应当还有防潮火柴。':'你把熄灭的引灯放在台边。值班簿提到防潮火柴；去问问站台上的莲，他保管着维修箱钥匙。');
       talk([{text:'你展开油纸，擦亮一根火柴，用掌心护住微小的火。引灯的纸面渐渐透出暖光。'},{who:'mio',text:'灯芯亮起来的一刻，窗外的旧字像重新有了墨迹。\n（按 Q 切换回忆，试着调查时刻表。）'}],apply('light-lantern','防潮火柴已使用 · 引灯点亮'));return;
     };

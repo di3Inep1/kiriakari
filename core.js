@@ -133,7 +133,7 @@
     state.zone = canVisit(state, raw.zone) ? raw.zone : 'station';
     state.phase = raw.phase === 'echo' && state.flags.lantern ? 'echo' : 'present';
     const spawn=Maps.maps[state.zone].spawn;state.player={x:spawn[0],y:spawn[1],facing:0};
-    const sameLayout=raw.layoutVersion===Maps.LAYOUT_VERSION||!['station','town'].includes(state.zone);
+    const sameLayout=raw.layoutVersion===Maps.LAYOUT_VERSION||!['station','town','station-office','town-workshop'].includes(state.zone);
     if (raw.player && state.zone === raw.zone && sameLayout) {
       const clamp = (n, low, high, fallback) => Number.isFinite(n) ? Math.max(low, Math.min(high, n)) : fallback;
       const map = Maps.maps[state.zone];

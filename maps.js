@@ -5,7 +5,7 @@
   else root.KiriMaps = value;
 })(globalThis, function () {
   'use strict';
-  const LAYOUT_VERSION=3;
+  const LAYOUT_VERSION=5;
   const maps = {};
   function create(id, w, h, floor, spawn) {
     const map = { id, w, h, floor, spawn, tiles: Array(w * h).fill(floor), solids: Array(w * h).fill(floor === 7 || floor === 15), props: [], lights: [], buildings: [], gates: [], platformEdges: [],tatami:[] };
@@ -28,7 +28,7 @@
   m.anchors={ren:[20,10],timetable:[11,8],photo:[4,9],'station-lock':[23,13],'to-town':[23,19],'station-door':[6,7],toolbox:[28,10],'waiting-bench':[4,9]};
   m.rect(11,3,21,3,11,true);m.rect(12,5,20,1,47,true);
   m.rect(2,7,29,6,2);m.rect(12,6,19,1,2);m.platformEdges.push({x:12,y:6,width:19});
-  m.house(2,3,9,5,19,'station-office');m.put(11,8,43,true);
+  m.house(3,4,7,4,19,'station-office');m.put(11,8,43,true);
   m.prop('photo-bench',0,4,9,2.7,[[-1,0],[0,0],[1,0]]);
   m.prop('rail-buffer',3,11,5,1.3,[[0,0]]);Object.assign(m.props.at(-1),{atlas:'station'});
   [[12,8],[27,8],[21,16],[25,16]].forEach(([x,y])=>m.put(x,y,40,true));m.put(20,10,2,true);
@@ -39,11 +39,11 @@
   m.prop('maintenance-chest',1,28,10,1.7,[[0,0]]);Object.assign(m.props.at(-1),{atlas:'exploration'});
   m.areas={track:{x:12,y:5,width:20,height:1},platform:{x:2,y:7,width:29,height:6},exitPath:{x:22,y:14,width:3,height:6}};
   m = create('town', 36, 26, 0, [5, 14]); m.border(32);
-  m.rect(2, 12, 32, 5, 2); m.rect(17, 2, 4, 22, 2); m.house(3, 4, 9, 5, 18,'town-west-house');m.house(24,4,9,5,19,'town-east-house');
+  m.rect(2, 12, 32, 5, 2); m.rect(17, 2, 4, 22, 2); m.house(4,5,7,4,18,'town-west-house');m.house(25,5,7,4,19,'town-east-house');
   m.rect(4,9,7,1,2);m.rect(6,9,3,3,2);m.rect(25,9,7,1,2);m.rect(27,9,3,3,2);
   const craneHouse=m.buildings.find(b=>b.id==='town-east-house');
-  m.anchors={nagi:[10,14],notice:[20,10],crane:[craneHouse.x+3,craneHouse.frontY-1],'to-station':[2,14],'to-shrine':[18,3],'to-archive':[33,14],'to-river':[19,23],'workshop-door':[7,8],well:[15,20],basket:[31,10]};
-  m.house(4, 19, 9, 5); m.house(25, 20, 8, 4, 18);
+  m.anchors={nagi:[10,14],notice:[20,10],crane:[craneHouse.door.x-1,craneHouse.frontY-1],'to-station':[2,14],'to-shrine':[18,3],'to-archive':[33,14],'to-river':[19,23],'workshop-door':[7,8],well:[15,20],basket:[31,10]};
+  m.house(5,20,7,4);m.house(26,20,6,4,18);
   [[3, 2], [14, 5], [22, 5], [2, 21], [31, 18], [22, 22], [15, 19]].forEach(([x, y]) => m.put(x, y, 33, true));
   [[13, 11], [23, 11], [16, 18], [21, 18]].forEach(([x, y]) => m.put(x, y, 40, true));
   m.put(20, 10, 43, true); m.put(10, 14, 2, true); m.rect(34, 3, 1, 21, 6, true);
@@ -73,22 +73,40 @@
   m.rect(1, 9, 34, 4, 2); m.rect(1, 8, 34, 1, 56, true); m.rect(1, 13, 34, 1, 56, true);
   m.rect(10, 5, 3, 4, 61); m.put(11, 5, 45, true); m.put(26, 11, 2, true);
   [4, 16, 28, 33].forEach(x => { m.put(x, 8, 40, true); m.put(x, 13, 40, true); });
-  // Interiors are real rooms with their own collision and return door, not dialogue panels.
-  m=create('station-office',18,14,4,[9,10]);m.border(15);m.rect(1,1,16,2,17,true);m.rect(1,12,16,1,17,true);m.put(9,12,31);
-  m.anchors={'old-lantern':[4,5],'duty-log':[12,5],parcel:[13,9],'lighting-table':[5,9],'office-window':[9,2],'office-exit':[9,12]};
-  m.put(3,2,29,true);m.put(9,2,29,true);m.put(14,2,29,true);
-  for(const [id,sprite,x,y,size,clearedBy] of [['lamp-cabinet',0,4,5,2.4,'lampFound'],['duty-desk',6,12,5,2.6,null],['parcel-shelf',5,13,9,1.9,'parcelTaken'],['lighting-desk',7,5,9,2.1,null]]){
+  // Doors lead to compact, furnished working rooms with a clear central aisle.
+  const furnish=(id,sprite,x,y,size,footprint=[],extra={})=>{m.prop(id,sprite,x,y,size,footprint);Object.assign(m.props.at(-1),{atlas:'interior',...extra});};
+  const compact=(id,sprite,x,y,size,footprint=[],extra={})=>furnish(id,sprite,x,y,size,footprint,{...extra,atlas:'compact'});
+  const wallLight=(id,x)=>{furnish(id,7,x,2,.95,[],{mount:'back-wall'});m.lights.push({x,y:2});};
+  m=create('station-office',14,11,4,[7,8]);m.border(15);m.rect(1,1,12,2,17,true);m.rect(1,9,12,1,17,true);m.put(7,9,31);
+  m.anchors={'old-lantern':[2,5],'duty-log':[4,4],parcel:[11,7],'lighting-table':[2,7],'office-window':[10,2],'office-exit':[7,9]};
+  m.areas={staff:{x:1,y:3,width:7,height:3},waiting:{x:9,y:3,width:4,height:4},luggage:{x:10,y:7,width:3,height:2},entrance:{x:6,y:7,width:3,height:2}};
+  m.put(3,2,29,true);m.put(10,2,29,true);
+  for(const [id,sprite,x,y,size,clearedBy] of [['lamp-cabinet',0,2,5,2.0,'lampFound'],['duty-desk',6,4,4,2.1,null],['parcel-shelf',5,11,7,1.6,'parcelTaken']]){
     m.prop(id,sprite,x,y,size,[[-1,0],[0,0],[1,0]]);Object.assign(m.props.at(-1),{atlas:'exploration',clearedBy});
   }
-  m.put(2,4,40,true);m.put(15,4,40,true);
-  m=create('town-workshop',18,14,4,[9,10]);m.border(15);m.rect(1,1,16,2,17,true);m.rect(1,12,16,1,17,true);m.put(9,12,31);
-  m.anchors={workbench:[5,5],'paste-table':[13,5],'workshop-record':[5,9],'workshop-exit':[9,12]};
-  m.put(3,2,29,true);m.put(14,2,29,true);
-  m.tatami.push({x:3,y:5.8,width:2,height:4},{x:5,y:5.8,width:2,height:4});
-  for(const [id,sprite,x,y,size,clearedBy] of [['repair-bench',3,5,5,2.5,'helpedNagi'],['paste-bench',7,13,5,2.3,null],['pattern-desk',6,5,9,2.3,null]]){
-    m.prop(id,sprite,x,y,size,[[-1,0],[0,0],[1,0]]);Object.assign(m.props.at(-1),{atlas:'exploration',clearedBy});
-  }
-  m.put(2,4,40,true);m.put(15,4,40,true);
+  furnish('lighting-desk',10,2,7,1.8,[[-1,0],[0,0],[1,0]]);
+  compact('ticket-counter',7,6,5,2.6,[[-1,0],[0,0],[1,0],[1,-1]]);
+  furnish('waiting-bench-north',1,10,4,2.5,[[-1,0],[0,0],[1,0]]);
+  compact('waiting-bench-east',0,12,6,2.5,[[0,0],[0,-1]],{facing:'west'});
+  furnish('ticket-cubby',2,2,3,1.6,[[0,0]]);
+  furnish('traveller-luggage',3,9,6,1.1,[[0,0]]);
+  m.prop('station-wall-clock',6,7,2,.9);Object.assign(m.props.at(-1),{atlas:'world',mount:'back-wall'});
+  wallLight('office-wall-lamp-west',1);wallLight('office-wall-lamp-east',12);
+  m=create('town-workshop',12,11,4,[6,8]);m.border(15);m.rect(1,1,10,2,17,true);m.rect(1,9,10,1,17,true);m.put(6,9,31);
+  m.anchors={workbench:[3,5],'paste-table':[8,5],'workshop-record':[3,8],'workshop-exit':[6,9]};
+  m.areas={making:{x:2,y:4,width:3,height:3},wetWork:{x:7,y:4,width:2,height:2},storage:{x:8,y:6,width:3,height:3},entrance:{x:5,y:7,width:2,height:2}};
+  m.put(5,2,29,true);
+  m.tatami.push({x:1.6,y:4.4,width:1.6,height:3.2},{x:3.2,y:4.4,width:1.6,height:3.2});
+  compact('repair-bench',2,3,5,1.7,[[0,0],[-1,0],[0,-1],[-1,-1]],{completedFlag:'helpedNagi',completedSprite:3,shape:'square'});
+  compact('paste-bench',4,8,5,1.6,[[0,0],[-1,0]],{shape:'square'});
+  compact('pattern-desk',5,3,8,1.5,[[0,0]],{shape:'square'});
+  furnish('paper-supply-shelf',4,3,3,2.0,[[-1,0],[0,0],[1,0]]);
+  furnish('lantern-drying-rack',5,8,3,2.3,[[-1,0],[0,0],[1,0]]);
+  furnish('work-stool',6,4,6,.7,[[0,0]]);
+  furnish('customer-stool',6,4,8,.7,[[0,0]]);
+  furnish('paper-stock-basket',8,8,7,1.0,[[0,0]]);
+  compact('side-paper-shelf',6,10,7,1.8,[[0,0],[0,-1]],{facing:'west'});
+  wallLight('workshop-wall-lamp-west',1);wallLight('workshop-wall-lamp-east',10);
   // Furniture is a transparent layer over the actual floor, never a baked floor tile.
   const detached = {40:[0,1.3],41:[7,1.35],43:[1,1.2],45:[2,1.25],46:[3,1.2],48:[4,1.5],49:[5,1.5],53:[6,1.25]};
   Object.values(maps).forEach(map=>{

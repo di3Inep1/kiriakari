@@ -10,6 +10,8 @@
   const craneImage=new Image();craneImage.src='assets/hanging-crane.png';
   const explorationImage=new Image();explorationImage.src='assets/exploration-props.png';
   const explorationCleared=new Image();explorationCleared.src='assets/exploration-props-cleared.png';
+  const interiorFurnishing=new Image();interiorFurnishing.src='assets/interior-furnishings.png';
+  const compactFurnishing=new Image();compactFurnishing.src='assets/compact-furniture.png';
   const woodGrain=new Image();woodGrain.src='assets/interior-wood-grain.png';
   const tatamiImage=new Image();tatamiImage.src='assets/tatami-mat.png';let tatamiBounds=null;
   const view = { tile: 48, x: 0, y: 0, width: 1, height: 1, zone: 'station' };
@@ -115,9 +117,9 @@
   }
   function propFrame(prop,solved=[],progress={}){
     const cleared=(prop.clearedBy&&progress.flags?.[prop.clearedBy])||(prop.onlyItemInEcho&&progress.phase!=='echo');
-    const source=prop.atlas==='exploration'?(cleared?explorationCleared:explorationImage):prop.atlas==='world'?worldProps:prop.atlas==='station'?stationKit:prop.atlas==='crane'?craneImage:mountedImage;
-    const columns=['world','exploration'].includes(prop.atlas)?4:prop.atlas==='crane'?1:2,rows=prop.atlas==='crane'?1:2;
-    const sprite=prop.gate&&solved.includes(prop.gate)?prop.openSprite:prop.sprite;
+    const source=prop.atlas==='compact'?compactFurnishing:prop.atlas==='interior'?interiorFurnishing:prop.atlas==='exploration'?(cleared?explorationCleared:explorationImage):prop.atlas==='world'?worldProps:prop.atlas==='station'?stationKit:prop.atlas==='crane'?craneImage:mountedImage;
+    const columns=['world','exploration','interior','compact'].includes(prop.atlas)?4:prop.atlas==='crane'?1:2,rows=prop.atlas==='interior'?3:prop.atlas==='crane'?1:2;
+    const sprite=prop.completedFlag&&progress.flags?.[prop.completedFlag]?prop.completedSprite:prop.gate&&solved.includes(prop.gate)?prop.openSprite:prop.sprite;
     return {source,columns,rows,sprite};
   }
   function drawPlatform(pen,map,size,originX=0,originY=0){
@@ -268,5 +270,5 @@
     map.props.forEach(p=>{const pose=root.KiriMaps.attachmentPose(zone,p);layers.push({z:pose?depth(pose.building.frontY-.92,1):depth(p.y,-1),draw:()=>{const {source,columns,rows,sprite}=propFrame(p,solved,progress);if(!source.complete||!source.naturalWidth)return;const sw=source.naturalWidth/columns,sh=source.naturalHeight/rows,extent=p.size*size,x=pose?pose.x:p.x+.5,y=pose?pose.bottomY:p.y+.92;pen.drawImage(source,sprite%columns*sw+4,Math.floor(sprite/columns)*sh+4,sw-8,sh-8,x*size-extent*.5,y*size-extent*.985,extent,extent);}});});
     layers.sort((a,b)=>a.z-b.z).forEach(layer=>layer.draw());
   }
-  root.KiriRenderer = { view, resize, draw, project, unproject, thumbnail, depth, assetsReady:()=>[image,foliage,mountedImage,worldProps,stoneGrain,stationKit,craneImage,explorationImage,explorationCleared,woodGrain,tatamiImage].every(i=>i.complete&&i.naturalWidth>0)&&!!root.KiriLighting?.assetsReady() };
+  root.KiriRenderer = { view, resize, draw, project, unproject, thumbnail, depth, assetsReady:()=>[image,foliage,mountedImage,worldProps,stoneGrain,stationKit,craneImage,explorationImage,explorationCleared,interiorFurnishing,compactFurnishing,woodGrain,tatamiImage].every(i=>i.complete&&i.naturalWidth>0)&&!!root.KiriLighting?.assetsReady() };
 })(globalThis);

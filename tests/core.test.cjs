@@ -98,7 +98,7 @@ test('station exit is physically gated and opens only after the station puzzle',
 test('paper crane is structurally attached to the house eave above the front wall',()=>{
   const prop=M.maps.town.props.find(p=>p.id==='eave-crane'),pose=M.attachmentPose('town',prop);
   assert.ok(pose);assert.equal(prop.atlas,'crane');assert.equal(pose.building.id,'town-east-house');
-  assert.equal(prop.x,pose.building.x+3);assert.equal(prop.y,pose.building.frontY-1);
+  assert.equal(prop.x,pose.building.door.x-1);assert.equal(prop.y,pose.building.frontY-1);
   assert.ok(pose.threadY>=pose.building.eaveY&&pose.threadY<pose.building.eaveY+.1);
   assert.ok(pose.bottomY>pose.threadY&&pose.bottomY<pose.building.frontY);
   assert.equal(M.walkable('town',prop.x,prop.y),false);assert.equal(M.walkable('town',prop.x,prop.y+1),true);
@@ -160,4 +160,13 @@ test('Ren gives practical progress-dependent help and lights the lamp only when 
   s.zone='station-office';C.explore(s,'take-lamp');s.zone='station';speak();assert.equal(C.hasItem(s,'lockerKey'),true);
   C.explore(s,'open-toolbox');speak(1);assert.equal(!!s.flags.lantern,false);assert.equal(C.hasItem(s,'dryMatches'),true);
   speak(0);assert.equal(s.flags.lantern,true);assert.equal(C.hasItem(s,'dryMatches'),false);assert.equal(!!s.flags.promisedRen,false);
+});
+
+test('old interior saves relocate to the resized room entrance without losing exploration progress',()=>{
+  for(const zone of ['station-office','town-workshop']){
+    const s=C.newGame();C.setFlag(s,'lantern');C.solvePuzzle(s,'station',solutions.station);s.zone=zone;s.layoutVersion=M.LAYOUT_VERSION-1;s.player={x:16,y:11,facing:2};
+    s.flags.threadTaken=true;C.giveItem(s,'redThread');C.addClue(s,'dutyLog');C.collectMemory(s,'photo');
+    const r=C.restore(JSON.parse(JSON.stringify(s))),spawn=M.maps[zone].spawn;
+    assert.equal(r.zone,zone);assert.deepEqual(r.player,{x:spawn[0],y:spawn[1],facing:0});assert.ok(C.hasItem(r,'redThread'));assert.ok(r.clues.includes('dutyLog'));assert.ok(r.memories.includes('photo'));assert.equal(r.flags.lantern,true);
+  }
 });
