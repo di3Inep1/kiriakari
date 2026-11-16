@@ -79,6 +79,7 @@ async function main() {
     await pause(100); await drain();
   };
   const echo = async () => { if (!(await saved()).flags.lantern) throw new Error('No lantern'); if ((await saved()).phase !== 'echo') await click('#phase-button'); };
+  const travel=async(id,zone)=>{await click('#object-'+id);await waitFor(`document.getElementById('world').dataset.zone===${JSON.stringify(zone)}`);await pause(100);};
   await send('Runtime.enable'); await send('Log.enable'); await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 960, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: base });
@@ -87,14 +88,34 @@ async function main() {
   await evaluate("Promise.all([...document.images].map(i=>i.decode().catch(()=>{})))"); await pause(700);
   await screenshot('preview-title.png');
   console.log('Title screenshot captured');
+  if(process.argv.includes('--interior-preview')){
+    for(const [zone,file] of [['station-office','preview-station-office.png'],['town-workshop','preview-lantern-workshop.png']]){
+      await send('Page.navigate',{url:base});await waitFor('!!window.KiriExploration');
+      await evaluate(`(()=>{const s=KiriCore.newGame();s.zone=${JSON.stringify(zone)};s.player={x:9,y:8,facing:0};if(s.zone==='town-workshop'){KiriCore.setFlag(s,'lantern');KiriCore.solvePuzzle(s,'station',[0,7,1,6]);KiriCore.setFlag(s,'helpedNagi');}localStorage.setItem('kiriakari.save.v1',JSON.stringify(s));})()`);
+      await send('Page.reload');await waitFor("!!window.KiriExploration && !!document.getElementById('continue-game')&&!document.getElementById('continue-game').disabled");await click('#continue-game');
+      await waitFor(`document.getElementById('world').dataset.zone===${JSON.stringify(zone)}`);await pause(900);await screenshot(file);
+    }
+    assert.deepEqual(errors,[]);console.log('Interior floors captured; no browser errors');await send('Browser.close');return;
+  }
   assert.equal(await evaluate("document.getElementById('continue-game').disabled"), true);
   await click('#help-title'); await click('#setting-text'); await click('#modal-close');
-  await click('#new-game'); await drain(); await object('ren', true, 1);
+  await click('#new-game'); await drain();await object('toolbox');assert.equal(!!(await saved()).flags.lantern,false);
+  await object('ren');assert.equal((await saved()).flags.renMet,true);
+  await travel('station-door','station-office');await object('duty-log');await pause(2800);await screenshot('preview-station-office.png');
+  await object('old-lantern');assert.equal((await saved()).flags.lampFound,true);assert.equal(!!(await saved()).flags.lantern,false);
+  await send('Page.reload');await waitFor("!!window.KiriExploration && document.getElementById('continue-game')&&!document.getElementById('continue-game').disabled");await click('#continue-game');
+  assert.equal((await saved()).zone,'station-office');assert.equal((await saved()).flags.lampFound,true);assert.equal(!!(await saved()).flags.lantern,false);assert.ok((await saved()).items.includes('guideLamp'));
+  await object('lighting-table');assert.equal(!!(await saved()).flags.lantern,false);
+  await object('parcel');await travel('office-exit','station');assert.equal(await evaluate("document.getElementById('player').dataset.tileX"),'6');
+  await object('ren');assert.ok((await saved()).items.includes('lockerKey'));await object('toolbox');assert.ok((await saved()).items.includes('dryMatches'));
+  await object('ren',true,1);assert.equal(!!(await saved()).flags.lantern,false);
+  await travel('station-door','station-office');await object('lighting-table');assert.equal((await saved()).flags.lantern,true);assert.equal((await saved()).items.includes('dryMatches'),false);
+  await travel('office-exit','station');await object('ren', true, 1);
   assert.equal(!!(await saved()).flags.promisedRen, false);
   await object('ren');
   assert.equal((await saved()).flags.lantern, true); assert.equal((await saved()).flags.promisedRen, true);
   await click('#map-button'); assert.equal(await evaluate("document.querySelector('[data-zone=town]').disabled"), true); await click('#modal-close');
-  results.push('Prologue, lantern, gated map and recovering an initially declined promise');
+  results.push('Station interior, unlit lamp, practical NPC key, locked maintenance chest, dry matches consumed at lighting desk, parcel and recoverable promise');
   console.log('Prologue passed');
   await waitFor("document.getElementById('player').classList.contains('has-walk-sheet')");
   await evaluate("(()=>{const w=document.getElementById('world'),r=w.getBoundingClientRect(),p=KiriRenderer.project({x:16,y:10});w.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:r.left+p.x,clientY:r.top+p.y}));})()");
@@ -190,6 +211,16 @@ async function main() {
   console.log('Station passed');
   await click('#object-to-town'); await waitFor("document.getElementById('zone-name').textContent === '灯见街'"); await pause(100);
   await object('nagi', true, 1); assert.equal(!!(await saved()).flags.helpedNagi, false); await object('nagi');
+  assert.equal((await saved()).flags.parcelDelivered,true);assert.ok((await saved()).items.includes('routeCard'));
+  await object('nagi');assert.equal(!!(await saved()).flags.helpedNagi,false);
+  if((await saved()).phase==='echo')await click('#phase-button');await object('basket');assert.equal((await saved()).items.includes('redThread'),false);
+  await echo();await object('basket');assert.ok((await saved()).items.includes('redThread'));await object('well');
+  await travel('workshop-door','town-workshop');await object('workshop-record');await object('paste-table');assert.ok((await saved()).items.includes('ricePaste'));assert.equal((await saved()).items.includes('waterJar'),false);
+  await object('workbench',true,1);assert.equal(!!(await saved()).flags.helpedNagi,false);assert.ok((await saved()).items.includes('redThread'));
+  await object('workbench');assert.equal((await saved()).flags.helpedNagi,true);assert.equal((await saved()).items.includes('redThread'),false);assert.equal((await saved()).items.includes('ricePaste'),false);
+  await pause(4300);await screenshot('preview-lantern-workshop.png');await travel('workshop-exit','town');
+  results.push('Practical town help, parcel delivery, memory-only red thread, well water, mixing paste, real repair materials and returning through the workshop door');
+  if(process.argv.includes('--opening-only')){assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,results,errors},null,2));await send('Browser.close');return;}
   await object('notice'); await pause(4300); await screenshot('preview-town.png');
   await evaluate("(()=>{const w=document.getElementById('world'),r=w.getBoundingClientRect(),p=KiriRenderer.project({x:27,y:9});w.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:r.left+p.x,clientY:r.top+p.y}));})()");
   await waitFor("document.getElementById('player').dataset.tileX==='27'&&document.getElementById('player').dataset.tileY==='9'");

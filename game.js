@@ -61,7 +61,7 @@
         { who: 'mio', text: '七年前，姐姐在灯见祭的暴雨里失踪了。所有人都说，雾灯町已经和那场洪水一起消失。' },
         { who: 'mio', text: '昨天，我却收到她寄来的信。纸上只有一句话：\n「澪，钟响十三次以前，别忘了回家的路。」' },
         { text: '末班车把你放在一座寂静的站台。时钟指着 23:59，秒针却一动不动。远处，一个站务员正望着你。' },
-        { text: '使用 WASD 或方向键移动，靠近光点后按 E 调查。也可以直接点击人物或物件，澪会走过去。\n先和站台上的青年谈谈吧。' }
+        { text: '使用 WASD 或方向键移动，靠近光点后按 E 调查。也可以直接点击人物或物件，澪会走过去。\n可以先向莲问路，也可以先走进西侧站房，寻找姐姐留下的引灯。' }
       ], () => { showSplash(); $('world').focus({ preventScroll: true }); });
     } else $('world').focus({ preventScroll: true });
   }
@@ -82,7 +82,7 @@
     $('world-background').style.backgroundPosition = `${zone.atlas[0] * 100}% ${zone.atlas[1] * 50}%`;
     $('zone-name').textContent = zone.name; $('zone-reading').textContent = zone.reading; $('zone-sub').textContent = zone.sub;
     $('phase-button').disabled = !state.flags.lantern; $('phase-name').textContent = echo ? '回忆' : '现世';
-    $('phase-sub').textContent = state.flags.lantern ? (echo ? '旧日之事正在浮现' : '在灯火中看见过去') : '先寻找一盏灯';
+    $('phase-sub').textContent = state.flags.lantern ? (echo ? '旧日之事正在浮现' : '在灯火中看见过去') : state.flags.lampFound?'引灯未点亮':'先寻找引灯';
     $('phase-button').setAttribute('aria-pressed', String(echo));
     $('player').classList.toggle('lit', !!state.flags.lantern);
     const container = $('objects'); container.replaceChildren();
@@ -102,7 +102,7 @@
     });
     nearest = null; updatePlayer(false); updateNearest();
   }
-  function visibleObjects() { return D.zones[state.zone].objects.filter(obj => !obj.phase || obj.phase === state.phase); }
+  function visibleObjects() { return D.zones[state.zone].objects.filter(obj => !obj.phase || obj.phase === state.phase).map(obj=>({...obj,name:KiriExploration.objectName(state,obj)})); }
   function updatePlayer(walking, visual = state?Move.visual(motion,state.player):null) {
     if (!state) return;
     const player = $('player'), point = R.project(visual); player.style.left = point.x + 'px'; player.style.top = point.y + 'px';
@@ -159,8 +159,9 @@
     }
     keys.clear(); clearTarget(); closeModal(false); transitioning = true;
     $('transition').classList.add('active'); clearTimeout(transitionTimer);
+    const previousZone=state.zone;
     transitionTimer = setTimeout(() => {
-      state.zone = id; const zone = D.zones[id]; state.player = { x: zone.spawn[0], y: zone.spawn[1], facing: 0 };
+      state.zone = id; const zone = D.zones[id],arrival=D.zones[previousZone].parent===id?D.zones[previousZone].returnAt:zone.spawn; state.player = { x: arrival[0], y: arrival[1], facing: 0 };
       renderWorld(); renderHUD(); save(); $('transition').classList.remove('active'); transitioning = false; showSplash();
       $('world').focus({ preventScroll: true });
       if (id === 'river' && !state.seen.includes('river-intro')) {
@@ -171,7 +172,7 @@
   }
   function togglePhase() {
     if (screen !== 'play' || modalKind || !$('dialogue').hidden || transitioning) return;
-    if (!state.flags.lantern) return toast('先和站台上的莲交谈，取得引灯。');
+    if (!state.flags.lantern) return toast(state.flags.lampFound?'引灯还未点亮。寻找火种，或者向莲求助。':'先进入站房，在西侧矮柜找到引灯。');
     clearTarget(false); state.phase = state.phase === 'echo' ? 'present' : 'echo';
     S.phase(state.phase === 'echo'); renderWorld(); save();
     if (!state.seen.includes('echo-tutorial')) {
@@ -187,11 +188,9 @@
     const action = obj.action;
     if (action.startsWith('go-')) return changeZone(action.slice(3));
     if (action.startsWith('puzzle-')) return openPuzzle(action.slice(7));
+    if (KiriExploration.run(action,state,{talk,changed}))return;
     if (D.clues[action]) return inspectClue(action);
     if (D.memories[action]) return inspectMemory(action);
-    if (action === 'ren') return talkRen();
-    if (action === 'nagi') return talkNagi();
-    if (action === 'notice') return talk([{ text: '告示上写着：「七月十六日，灯见祭。请为每盏灯写下一个你不愿忘记的名字。」\n纸已经泛黄，角落却像刚刚被雨打湿。' }, { who: 'mio', text: '原来那天不是为了向神许愿。是为了让离开的人，还能找到回来的路。' }]);
     if (action === 'shrine-shiori') return talk([{ who: 'shiori', text: '月是抬头时看见的，山是远处等你的。走过川，才有舟。\n澪，你小时候总把最后一句唱反。' }, { who: 'mio', text: '姐姐？等一下——你为什么和那年一模一样？' }, { text: '灯影晃动，她的回答散在了风里。也许钟楼里还留着更完整的回声。' }]);
     if (action === 'tower-shiori') return talkShiori();
     if (action === 'finale') return beginFinale();
@@ -212,40 +211,6 @@
     talk([{ who: id === 'tape' ? 'shiori' : undefined, text: memory.text }], () => {
       C.collectMemory(state, id); if (fresh) S.chime(); changed(fresh ? `找回回忆 · ${memory.title}（${state.memories.length} / 4）` : null);
     });
-  }
-  function talkRen() {
-    if (!state.flags.lantern) {
-      talk([
-        { who: 'ren', detail: '站务员', text: '你终于来了，澪。我叫莲。你姐姐说，拿着这封信的人，总有一天会回来。' },
-        { who: 'mio', text: '她在哪里？这里明明已经……过去七年了。' },
-        { who: 'ren', text: '这里的夜晚不会结束。有人把自己留在钟声里，才替我们留住了一条路。\n拿着这盏引灯。它能照见这座镇过去的模样。' },
-        { who: 'ren', text: '如果你见到了她，能不能替我说一句：我们已经不害怕天亮了。', choices: [
-          { text: '我答应你。也请你，别再一个人等了。', effect: () => C.setFlag(state, 'promisedRen'), reply: [{ who: 'ren', text: '……谢谢。原来等到一句回答，是这样的感觉。' }] },
-          { text: '我现在只想先找到姐姐。', reply: [{ who: 'ren', text: '我明白。我会在这里。等你想听的时候，再来找我吧。' }] }
-        ] },
-        { text: '获得「引灯」。按 Q 可在现世与回忆之间切换。\n检票闸门的暗号，藏在那张褪色的时刻表里。' }
-      ], () => { C.setFlag(state, 'lantern'); changed('获得引灯 · 按 Q 照见回忆'); });
-    } else if (!state.flags.promisedRen) {
-      talk([{ who: 'ren', text: '澪，找到她以后，别只问她能为我们做什么。也问问她，自己想去哪里。\n那句「我们不怕天亮了」，你愿意替我带给她吗？', choices: [
-        { text: '我答应你。天亮后，我们一起回去。', effect: () => C.setFlag(state, 'promisedRen'), reply: [{ who: 'ren', text: '那么，这次我等的是归来的列车。' }] },
-        { text: '等我再想一想。', reply: [{ who: 'ren', text: '没关系。等待，已经是我最熟悉的事了。' }] }
-      ] }], () => changed(state.flags.promisedRen ? '约定已记下 · 莲不再独自等待' : null));
-    } else talk([{ who: 'ren', text: state.solved.includes('tower') ? '我听见齿轮的声音了。澪，去吧。我会和婆婆一起，替你们点亮回来的路。' : '引灯不会消耗，也不会熄灭。迷路的时候，就去看看同一个地方从前的模样。\n我答应过你姐姐，会把你送到最后一站。' }]);
-  }
-  function talkNagi() {
-    if (state.flags.helpedNagi) return talk([{ who: 'nagi', text: state.solved.includes('tower') ? '钟又走了。好孩子，婆婆记得路。等你叫出她的名字，我们就把灯一盏一盏地送过去。' : '灯阵上的月、山、川、舟，是一首归家的歌。绘马被雨洗白了，可引灯能让旧字回来。\n别只盯着机关，屋檐下也有孩子留下的东西。' }]);
-    talk([
-      { who: 'nagi', detail: '制灯人', text: '澪都长这么大了。栞总在我这里借灯，说妹妹怕黑。\n唉，这盏灯的骨架松了。婆婆的手，如今穿不过那根细线了。' },
-      { who: 'mio', choices: [
-        { text: '我来帮您。您慢慢说，我想听听姐姐的事。', effect: () => C.setFlag(state, 'helpedNagi'), reply: [
-          { text: '你扶正灯骨，把红线穿过竹篾。婆婆握着你的手，像从一场漫长的梦里醒来。' },
-          { who: 'nagi', text: '你姐姐那天不是去求奇迹。她借走了一盏灯，给每个人写了名字。她把活下去的机会，一个一个送出了镇。' },
-          { who: 'nagi', text: '可灯里也有她。若是只把钟打碎，我们会连她的名字都忘掉。\n找到她真正留下的回忆，让每个人都分担一点，灯才不用靠一个人撑着。' }
-        ] },
-        { text: '请先告诉我，姐姐往哪里去了。', reply: [{ who: 'nagi', text: '去月见神社吧。那里的灯阵守着书库的印钥。\n等你不那么着急时，婆婆还想请你帮个小忙。' }] }
-      ] },
-      { who: 'nagi', text: '神社的绘马唱着一首归舟歌。记住它的先后，灯就会认得你。' }
-    ], () => changed(state.flags.helpedNagi ? '替凪婆婆修好了纸灯 · 一段牵挂被接住了' : null));
   }
   function talkShiori() {
     talk([
@@ -393,7 +358,8 @@
     let body = `<div class="tabs">${tabs.map(([key, title]) => `<button data-tab="${key}" class="${tab === key ? 'active' : ''}">${title}</button>`).join('')}</div>`;
     if (tab === 'journey') {
       const objective = C.objective(state);
-      body += `<p class="journal-intro">${objective[1]}</p><ul class="progress-list">${C.PUZZLES.map(id => `<li class="${state.solved.includes(id) ? 'done' : ''}"><span>${state.solved.includes(id) ? '✓' : '◇'}</span>${D.puzzleNames[id]}${state.solved.includes(id) ? ' · 已解开' : ''}</li>`).join('')}</ul><div class="journal-entry"><h3>随身之物</h3><p>姐姐的来信${state.flags.lantern ? ' · 引灯（可随时切换现世与回忆）' : ''}${state.solved.includes('shrine') ? ' · 四灯印钥' : ''}${state.solved.includes('archive') ? ' · 钟楼钥匙 · 完整祭典记录' : ''}</p></div><div class="journal-entry"><h3>一封迟到的信</h3><p>「澪，钟响十三次以前，别忘了回家的路。」<br>信封上的寄信日期，是七年前的七月十六日。</p></div>`;
+      body+=KiriExploration.tasks(state).map(([name,text])=>`<div class="journal-entry"><h3>${name}</h3><p>${text}</p></div>`).join('');
+      body += `<p class="journal-intro">${objective[1]}</p><ul class="progress-list">${C.PUZZLES.map(id => `<li class="${state.solved.includes(id) ? 'done' : ''}"><span>${state.solved.includes(id) ? '✓' : '◇'}</span>${D.puzzleNames[id]}${state.solved.includes(id) ? ' · 已解开' : ''}</li>`).join('')}</ul><div class="journal-entry"><h3>随身之物</h3><p>姐姐的来信${KiriExploration.inventory(state).length?' · '+KiriExploration.inventory(state).join(' · '):''}${state.solved.includes('shrine') ? ' · 四灯印钥' : ''}${state.solved.includes('archive') ? ' · 钟楼钥匙 · 完整祭典记录' : ''}</p></div><div class="journal-entry"><h3>一封迟到的信</h3><p>「澪，钟响十三次以前，别忘了回家的路。」<br>信封上的寄信日期，是七年前的七月十六日。</p></div>`;
     } else if (tab === 'clues') {
       body += C.CLUES.map(id => { const clue = D.clues[id], found = state.clues.includes(id); return `<article class="journal-entry ${found ? '' : 'locked'}"><h3>${found ? clue.title : '尚未浮现的文字'}</h3><small>${clue.place}</small><p>${found ? clue.text : '在回忆中，调查这里留下的文字。'}</p></article>`; }).join('');
     } else if (tab === 'memories') {
@@ -405,17 +371,19 @@
       body += bonds.map(([flag, name, text]) => `<article class="journal-entry ${state.flags[flag] ? '' : 'locked'}"><h3>${state.flags[flag] ? '✓ ' : '◇ '}${name}</h3><p>${state.flags[flag] ? '这份牵挂，已经被你接住了。' : text}</p></article>`).join('');
       if (state.solved.includes('tower')) { const missing = C.missingForDawn(state); body += `<div class="puzzle-clue"><span class="clue-label">最后一条路</span>${missing.length ? '你还可以：' + missing.join('；') + '。' : '所有回忆与约定已经齐备。你可以在渡灯桥叫出她的名字。'}</div>`; }
     }
+    if(tab==='journey'&&!state.flags.lantern&&C.hasItem(state,'guideLamp')&&C.hasItem(state,'dryMatches'))body+='<button id="use-matches" class="button primary">用防潮火柴点燃引灯</button>';
     openModal('澪的手记', 'NOTES FROM THE OTHER SIDE', 'journal', body);
+    if($('use-matches'))$('use-matches').onclick=()=>{closeModal();KiriExploration.run('light-lantern',state,{talk,changed});};
     $('modal-body').querySelectorAll('[data-tab]').forEach(button => { button.onclick = () => { openJournal(button.dataset.tab); $('modal-body').querySelector(`[data-tab="${button.dataset.tab}"]`)?.focus({ preventScroll: true }); }; });
   }
   function openMap() {
     if (!state) return;
-    openModal('雾灯町旧地图', 'SIX PLACES · ONE LONG NIGHT', 'map', `<div class="map-grid">${C.ZONES.map(id => {
+    openModal('雾灯町旧地图', 'SIX PLACES · ONE LONG NIGHT', 'map', `<div class="map-grid">${C.MAP_ZONES.map(id => {
       const zone = D.zones[id], available = C.canVisit(state, id), active = id === state.zone;
       return `<button class="map-place ${active ? 'active' : ''}" data-zone="${id}" ${!available || active ? 'disabled' : ''}><canvas class="map-art" data-minimap="${id}" aria-hidden="true"></canvas><span class="map-info">${zone.name}<small>${active ? '所在之处' : available ? '前往 ↗' : '雾未散去'}</small></span></button>`;
     }).join('')}</div><p class="map-description">已经打开的道路，可以在地图上直接前往。切换现世与回忆不消耗任何物品。<br>所有场景都可以重访；最后作出选择之前，仍能补全回忆与约定。</p>`, true);
     $('modal-body').querySelectorAll('[data-zone]').forEach(button => { button.onclick = () => changeZone(button.dataset.zone); });
-    $('modal-body').querySelectorAll('[data-minimap]').forEach(canvas => R.thumbnail(canvas.dataset.minimap, canvas,state.solved));
+    $('modal-body').querySelectorAll('[data-minimap]').forEach(canvas => R.thumbnail(canvas.dataset.minimap, canvas,state.solved,state));
   }
   function openSettings() {
     const hasManual = !!getSave(KEYS.manual);
@@ -573,7 +541,7 @@
         });
       }
       const visual=Move.visual(motion,state.player),walking=motion.walking&&!modalKind&&$('dialogue').hidden&&!transitioning;
-      R.draw(state.zone, visual, now, state.phase,state.solved); updatePlayer(walking, visual); paintAtmosphere(now);
+      R.draw(state.zone, visual, now, state.phase,state.solved,state); updatePlayer(walking, visual); paintAtmosphere(now);
       if(movementSavePending&&!motion.walking){movementSavePending=false;save();}
       state.elapsed += dt; saveTick += dt; if (saveTick >= 12) { saveTick = 0; save(); }
     }

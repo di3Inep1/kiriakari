@@ -4,6 +4,9 @@
     station: { name: '雾灯车站', reading: 'KIRIAKARI STATION', sub: '末班车停在昨日。', atlas: [0, 0], spawn: [49, 73], links: ['town'],
       objects: [
         { id: 'ren', name: '莲', label: '站务员', x: 65, y: 58, character: 2, action: 'ren' },
+        { id: 'station-door', name: '进入站房', action: 'go-station-office', mark:'exit' },
+        { id: 'toolbox', name: '上锁的维修箱', action:'toolbox',mark:'inspect',support:'maintenance-chest',focusOffset:{x:0,y:-.45} },
+        { id: 'waiting-bench', name: '候车长椅', phase:'present',action:'waiting-bench',mark:'inspect',support:'photo-bench',focusOffset:{x:.78,y:-.45} },
         { id: 'timetable', name: '褪色的时刻表', x: 25, y: 43, action: 'date', mark: 'inspect' },
         { id: 'photo', name: '长椅上的合照', x: 34, y: 70, phase: 'echo', action: 'photo', mark: 'memory', support: 'photo-bench', focusOffset: { x: .78, y: -.45 } },
         { id: 'station-lock', name: '检票闸门', x: 83, y: 53, action: 'puzzle-station', mark: 'puzzle',support:'station-ticket-gate',focusOffset:{x:0,y:-.75} },
@@ -12,6 +15,9 @@
     town: { name: '灯见街', reading: 'AKARIMI STREET', sub: '每盏灯下，都有人等待。', atlas: [1, 0], spawn: [22, 72], links: ['station', 'shrine', 'archive', 'river'],
       objects: [
         { id: 'nagi', name: '凪婆婆', label: '制灯人', x: 35, y: 57, character: 3, action: 'nagi' },
+        { id: 'workshop-door', name: '进入制灯铺', action:'go-town-workshop',mark:'exit' },
+        { id: 'well', name: '街南的石井', action:'well',mark:'inspect',support:'town-well',focusOffset:{x:0,y:-.5} },
+        { id: 'basket', name: '檐边的针线篮', action:'basket',mark:'inspect',support:'thread-basket',focusOffset:{x:0,y:-.35} },
         { id: 'notice', name: '祭典告示', x: 66, y: 43, action: 'notice', mark: 'inspect' },
         { id: 'crane', name: '檐下的纸鹤', x: 68, y: 72, phase: 'echo', action: 'crane', mark: 'memory', support: 'eave-crane', focusOffset: { x: 0, y: -.17 } },
         { id: 'to-station', name: '雾灯车站', x: 12, y: 72, action: 'go-station', mark: 'exit' },
@@ -50,7 +56,25 @@
         { id: 'to-tower', name: '返回钟楼', x: 87, y: 40, action: 'go-tower', mark: 'exit' }
       ] }
   };
+  zones['station-office']={name:'站房候车室',reading:'STATION OFFICE',sub:'末班车没有带走的东西，都留在这里。',atlas:[1,1],parent:'station',returnAt:[6,8],links:['station'],objects:[
+    {id:'old-lantern',name:'柜中的旧引灯',action:'old-lantern',mark:'inspect',support:'lamp-cabinet',focusOffset:{x:.55,y:-1.0}},
+    {id:'duty-log',name:'站务值班簿',action:'duty-log',mark:'inspect',support:'duty-desk',focusOffset:{x:0,y:-.65}},
+    {id:'parcel',name:'未送达的包裹',action:'parcel',mark:'inspect',support:'parcel-shelf',focusOffset:{x:0,y:-.6}},
+    {id:'lighting-table',name:'整灯台',action:'lighting-table',mark:'inspect',support:'lighting-desk',focusOffset:{x:0,y:-.55}},
+    {id:'office-window',name:'朝向站台的旧窗',action:'office-window',mark:'inspect'},
+    {id:'office-exit',name:'返回站台',action:'go-station',mark:'exit'}
+  ]};
+  zones['town-workshop']={name:'凪家的制灯铺',reading:'NAGI’S LANTERN WORKSHOP',sub:'竹篾与米糊，能把断开的灯纸重新连起来。',atlas:[1,1],parent:'town',returnAt:[7,9],links:['town'],objects:[
+    {id:'workbench',name:'待修的纸灯',action:'workbench',mark:'inspect',support:'repair-bench',focusOffset:{x:0,y:-.8}},
+    {id:'paste-table',name:'干结的糨糊台',action:'paste-table',mark:'inspect',support:'paste-bench',focusOffset:{x:-.3,y:-.55}},
+    {id:'workshop-record',name:'制灯旧样本',action:'workshop-record',mark:'inspect',support:'pattern-desk',focusOffset:{x:0,y:-.65}},
+    {id:'workshop-exit',name:'返回灯见街',action:'go-town',mark:'exit'}
+  ]};
   const clues = {
+    dutyLog:{title:'站务的防潮记录',place:'站房 · 值班簿',text:'引灯收在站房西侧矮柜。火柴用油纸包好，锁在站台最东边的维修箱里；黄铜钥匙由当班站务员莲保管。整灯台可以检查灯芯、点火，莲也能替人挡风。'},
+    repairRecipe:{title:'制灯人的修补法',place:'制灯铺 · 旧样本',text:'先用红线绑稳灯骨，再用清水调开干米糊，薄薄刷在破纸边缘。针线篮在东侧民居檐边；主街南边的石井备有干净的水罐，糨糊台就在制灯铺东侧。'},
+    rescueRoute:{title:'七年前的送灯路线',place:'凪婆婆 · 旧包裹',text:'包裹里是栞没来得及送到的备用灯芯。婆婆在旧路线图上指出：北边月见神社保存印钥，东边书库留下祭典记录，再往后才能抵达钟楼。图角写着：「先把害怕的人送上列车，再数剩下的灯。」'},
+    festivalNotice:{title:'灯见街的祭典告示',place:'灯见街 · 主街',text:'七月十六日，灯见祭。制灯铺在主街西侧，取水到街南石井；散落的针线请送回东侧民居檐边的篮子。月见神社沿主街往北。请为每盏灯写下一个不愿忘记的名字。'},
     date: { title: '祭典的日期', place: '雾灯车站 · 回忆', text: '时刻表背面写着：「七月十六日，灯见祭。日期写成四位数字，就是我们回家的暗号。」检票闸门上的四个数字槽依次为月、月、日、日。' },
     lanternOrder: { title: '归舟之歌', place: '月见神社 · 回忆', text: '「先见月，后见山；山脚有川，川上有舟。」灯阵要依照歌谣逐盏点亮；点错时，可从头再来。' },
     chronology: { title: '那一夜的先后', place: '旧校书库 · 回忆', text: '手记的墨迹浮现：「栞先在车站寄信，才去借灯。借灯之后，她开了旧闸。最后，她独自敲响了钟。」记录柜要从左到右排出事件的先后。' },
@@ -71,6 +95,8 @@
   const positions = {
     station: root.KiriMaps.maps.station.anchors,
     town: root.KiriMaps.maps.town.anchors,
+    'station-office':root.KiriMaps.maps['station-office'].anchors,
+    'town-workshop':root.KiriMaps.maps['town-workshop'].anchors,
     shrine: { lanterns: [14,13], mural: [6,12], 'shrine-shiori': [19,15], 'to-town': [14,22] },
     archive: { records: [13,5], ledger: [7,14], tape: [19,15], 'to-tower': [23,5], 'to-town': [13,20] },
     tower: { gears: [12,7], marks: [6,12], 'tower-shiori': [17,13], 'to-archive': [6,20], 'to-river': [20,18] },

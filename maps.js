@@ -5,10 +5,10 @@
   else root.KiriMaps = value;
 })(globalThis, function () {
   'use strict';
-  const LAYOUT_VERSION=2;
+  const LAYOUT_VERSION=3;
   const maps = {};
   function create(id, w, h, floor, spawn) {
-    const map = { id, w, h, floor, spawn, tiles: Array(w * h).fill(floor), solids: Array(w * h).fill(floor === 7 || floor === 15), props: [], lights: [], buildings: [], gates: [], platformEdges: [] };
+    const map = { id, w, h, floor, spawn, tiles: Array(w * h).fill(floor), solids: Array(w * h).fill(floor === 7 || floor === 15), props: [], lights: [], buildings: [], gates: [], platformEdges: [],tatami:[] };
     map.put = (x, y, tile, solid = false) => { if (x >= 0 && y >= 0 && x < w && y < h) { map.tiles[y * w + x] = tile; map.solids[y * w + x] = solid; } };
     map.rect = (x, y, width, height, tile, solid = false) => { for (let r = y; r < y + height; r++) for (let c = x; c < x + width; c++) map.put(c, r, tile, solid); };
     map.prop = (id, sprite, x, y, size, footprint = [], hanging = false) => {
@@ -25,7 +25,7 @@
     maps[id] = map; return map;
   }
   let m = create('station', 32, 22, 0, [17,10]);m.border(34);
-  m.anchors={ren:[20,10],timetable:[11,8],photo:[4,9],'station-lock':[23,13],'to-town':[23,19]};
+  m.anchors={ren:[20,10],timetable:[11,8],photo:[4,9],'station-lock':[23,13],'to-town':[23,19],'station-door':[6,7],toolbox:[28,10],'waiting-bench':[4,9]};
   m.rect(11,3,21,3,11,true);m.rect(12,5,20,1,47,true);
   m.rect(2,7,29,6,2);m.rect(12,6,19,1,2);m.platformEdges.push({x:12,y:6,width:19});
   m.house(2,3,9,5,19,'station-office');m.put(11,8,43,true);
@@ -36,17 +36,21 @@
   m.put(22,13,2,true);m.put(23,13,2);m.put(24,13,2,true);
   m.prop('station-ticket-gate',0,23,13,2.8,[[-1,0],[1,0]]);Object.assign(m.props.at(-1),{atlas:'station',gate:'station',openSprite:1});
   m.gates.push({puzzle:'station',cells:[[23,13]]});
+  m.prop('maintenance-chest',1,28,10,1.7,[[0,0]]);Object.assign(m.props.at(-1),{atlas:'exploration'});
   m.areas={track:{x:12,y:5,width:20,height:1},platform:{x:2,y:7,width:29,height:6},exitPath:{x:22,y:14,width:3,height:6}};
   m = create('town', 36, 26, 0, [5, 14]); m.border(32);
   m.rect(2, 12, 32, 5, 2); m.rect(17, 2, 4, 22, 2); m.house(3, 4, 9, 5, 18,'town-west-house');m.house(24,4,9,5,19,'town-east-house');
   m.rect(4,9,7,1,2);m.rect(6,9,3,3,2);m.rect(25,9,7,1,2);m.rect(27,9,3,3,2);
   const craneHouse=m.buildings.find(b=>b.id==='town-east-house');
-  m.anchors={nagi:[10,14],notice:[20,10],crane:[craneHouse.x+3,craneHouse.frontY-1],'to-station':[2,14],'to-shrine':[18,3],'to-archive':[33,14],'to-river':[19,23]};
+  m.anchors={nagi:[10,14],notice:[20,10],crane:[craneHouse.x+3,craneHouse.frontY-1],'to-station':[2,14],'to-shrine':[18,3],'to-archive':[33,14],'to-river':[19,23],'workshop-door':[7,8],well:[15,20],basket:[31,10]};
   m.house(4, 19, 9, 5); m.house(25, 20, 8, 4, 18);
   [[3, 2], [14, 5], [22, 5], [2, 21], [31, 18], [22, 22], [15, 19]].forEach(([x, y]) => m.put(x, y, 33, true));
   [[13, 11], [23, 11], [16, 18], [21, 18]].forEach(([x, y]) => m.put(x, y, 40, true));
   m.put(20, 10, 43, true); m.put(10, 14, 2, true); m.rect(34, 3, 1, 21, 6, true);
   m.prop('eave-crane',0,...m.anchors.crane,.48,[],true);Object.assign(m.props.at(-1),{atlas:'crane',attachment:{building:craneHouse.id}});
+  m.put(15,19,0);m.rect(14,18,3,4,2);
+  m.prop('town-well',2,15,20,2.1,[[0,0],[-1,0],[1,0],[0,-1]]);Object.assign(m.props.at(-1),{atlas:'exploration'});
+  m.prop('thread-basket',4,31,10,1.35,[[0,0]]);Object.assign(m.props.at(-1),{atlas:'exploration',clearedBy:'threadTaken',onlyItemInEcho:true});
   m = create('shrine', 28, 24, 1, [14, 20]); m.border(34); m.rect(5, 10, 18, 12, 10);
   m.rect(13, 8, 3, 15, 2); m.house(8, 3, 12, 6, 18); m.put(14, 8, 31);
   m.rect(10, 10, 8, 1, 56, true); m.put(13, 10, 2); m.put(14, 10, 2);
@@ -69,6 +73,22 @@
   m.rect(1, 9, 34, 4, 2); m.rect(1, 8, 34, 1, 56, true); m.rect(1, 13, 34, 1, 56, true);
   m.rect(10, 5, 3, 4, 61); m.put(11, 5, 45, true); m.put(26, 11, 2, true);
   [4, 16, 28, 33].forEach(x => { m.put(x, 8, 40, true); m.put(x, 13, 40, true); });
+  // Interiors are real rooms with their own collision and return door, not dialogue panels.
+  m=create('station-office',18,14,4,[9,10]);m.border(15);m.rect(1,1,16,2,17,true);m.rect(1,12,16,1,17,true);m.put(9,12,31);
+  m.anchors={'old-lantern':[4,5],'duty-log':[12,5],parcel:[13,9],'lighting-table':[5,9],'office-window':[9,2],'office-exit':[9,12]};
+  m.put(3,2,29,true);m.put(9,2,29,true);m.put(14,2,29,true);
+  for(const [id,sprite,x,y,size,clearedBy] of [['lamp-cabinet',0,4,5,2.4,'lampFound'],['duty-desk',6,12,5,2.6,null],['parcel-shelf',5,13,9,1.9,'parcelTaken'],['lighting-desk',7,5,9,2.1,null]]){
+    m.prop(id,sprite,x,y,size,[[-1,0],[0,0],[1,0]]);Object.assign(m.props.at(-1),{atlas:'exploration',clearedBy});
+  }
+  m.put(2,4,40,true);m.put(15,4,40,true);
+  m=create('town-workshop',18,14,4,[9,10]);m.border(15);m.rect(1,1,16,2,17,true);m.rect(1,12,16,1,17,true);m.put(9,12,31);
+  m.anchors={workbench:[5,5],'paste-table':[13,5],'workshop-record':[5,9],'workshop-exit':[9,12]};
+  m.put(3,2,29,true);m.put(14,2,29,true);
+  m.tatami.push({x:3,y:5.8,width:2,height:4},{x:5,y:5.8,width:2,height:4});
+  for(const [id,sprite,x,y,size,clearedBy] of [['repair-bench',3,5,5,2.5,'helpedNagi'],['paste-bench',7,13,5,2.3,null],['pattern-desk',6,5,9,2.3,null]]){
+    m.prop(id,sprite,x,y,size,[[-1,0],[0,0],[1,0]]);Object.assign(m.props.at(-1),{atlas:'exploration',clearedBy});
+  }
+  m.put(2,4,40,true);m.put(15,4,40,true);
   // Furniture is a transparent layer over the actual floor, never a baked floor tile.
   const detached = {40:[0,1.3],41:[7,1.35],43:[1,1.2],45:[2,1.25],46:[3,1.2],48:[4,1.5],49:[5,1.5],53:[6,1.25]};
   Object.values(maps).forEach(map=>{

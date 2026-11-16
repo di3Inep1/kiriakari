@@ -7,18 +7,21 @@
   'use strict';
   const VERSION = 2;
   const Maps = typeof module === 'object' && module.exports ? require('./maps.js') : globalThis.KiriMaps;
-  const ZONES = ['station', 'town', 'shrine', 'archive', 'tower', 'river'];
+  const MAP_ZONES = ['station', 'town', 'shrine', 'archive', 'tower', 'river'];
+  const ZONES = [...MAP_ZONES,'station-office','town-workshop'];
   const PUZZLES = ['station', 'shrine', 'archive', 'tower'];
   const MEMORIES = ['photo', 'crane', 'tape', 'names'];
-  const CLUES = ['date', 'lanternOrder', 'chronology', 'clockMarks'];
-  const FLAGS = ['lantern', 'promisedRen', 'helpedNagi', 'heardShiori', 'truth'];
+  const CLUES = ['date', 'lanternOrder', 'chronology', 'clockMarks','dutyLog','repairRecipe','rescueRoute','festivalNotice'];
+  const FLAGS = ['lantern', 'promisedRen', 'helpedNagi', 'heardShiori', 'truth','renMet','lampFound','matchesFound','nagiMet','repairRequested','threadTaken','parcelTaken','parcelDelivered'];
+  const ITEMS=['guideLamp','lockerKey','dryMatches','redThread','waterJar','ricePaste','oldParcel','routeCard'];
   const ENDINGS = ['departure', 'keeper', 'nameless', 'dawn'];
   const same = (a, b) => Array.isArray(a) && a.length === b.length && a.every((x, i) => x === b[i]);
   function newGame() {
-    return { version: VERSION, layoutVersion:Maps.LAYOUT_VERSION,zone: 'station', phase: 'present', player: { x: Maps.maps.station.spawn[0], y: Maps.maps.station.spawn[1], facing: 0 }, flags: {}, clues: [], memories: [], solved: [], seen: [], elapsed: 0, started: Date.now(), ending: null };
+    return { version: VERSION, explorationVersion:1,items:[],layoutVersion:Maps.LAYOUT_VERSION,zone: 'station', phase: 'present', player: { x: Maps.maps.station.spawn[0], y: Maps.maps.station.spawn[1], facing: 0 }, flags: {}, clues: [], memories: [], solved: [], seen: [], elapsed: 0, started: Date.now(), ending: null };
   }
   function canVisit(state, zone) {
-    if (zone === 'station') return true;
+    if (zone === 'station'||zone==='station-office') return true;
+    if(zone==='town-workshop')return state.solved.includes('station');
     if (zone === 'town' || zone === 'shrine') return state.solved.includes('station');
     if (zone === 'archive') return state.solved.includes('shrine');
     if (zone === 'tower') return state.solved.includes('archive');
@@ -28,7 +31,31 @@
   function addUnique(list, id) { if (!list.includes(id)) { list.push(id); return true; } return false; }
   function addClue(state, id) { return CLUES.includes(id) && addUnique(state.clues, id); }
   function collectMemory(state, id) { return MEMORIES.includes(id) && addUnique(state.memories, id); }
-  function setFlag(state, id) { if (FLAGS.includes(id)) state.flags[id] = true; }
+  function hasItem(state,id){return state.items.includes(id);}
+  function giveItem(state,id){return ITEMS.includes(id)&&addUnique(state.items,id);}
+  function consume(state,id){state.items=state.items.filter(item=>item!==id);}
+  function setFlag(state, id) {
+    if (FLAGS.includes(id)) state.flags[id] = true;
+    if(id==='lantern'){state.flags.lampFound=true;giveItem(state,'guideLamp');}
+    if(id==='helpedNagi')state.flags.nagiMet=true;
+  }
+  // All exploration rewards and consumption are checked here, including repeated visits.
+  function explore(state,action){
+    const places={'take-lamp':['station-office'],'borrow-key':['station'],'open-toolbox':['station'],'light-lantern':['station','station-office'],'take-parcel':['station-office'],'take-thread':['town'],'draw-water':['town'],'mix-paste':['town-workshop'],'meet-nagi':['town'],'repair-lamp':['town','town-workshop'],'deliver-parcel':['town']};
+    if(!places[action]||!places[action].includes(state.zone)||!canVisit(state,state.zone))return 'unavailable';
+    if(action==='take-lamp'){if(state.flags.lampFound)return 'already';state.flags.lampFound=true;giveItem(state,'guideLamp');}
+    if(action==='borrow-key'){if(!state.flags.lampFound)return 'missing-lamp';if(!giveItem(state,'lockerKey'))return 'already';}
+    if(action==='open-toolbox'){if(state.flags.matchesFound||state.flags.lantern)return 'already';if(!hasItem(state,'lockerKey'))return 'missing-key';state.flags.matchesFound=true;giveItem(state,'dryMatches');}
+    if(action==='light-lantern'){if(state.flags.lantern)return 'already';if(!state.flags.lampFound)return 'missing-lamp';if(!hasItem(state,'dryMatches'))return 'missing-matches';consume(state,'dryMatches');setFlag(state,'lantern');}
+    if(action==='take-parcel'){if(state.flags.parcelTaken)return 'already';state.flags.parcelTaken=true;giveItem(state,'oldParcel');}
+    if(action==='take-thread'){if(state.flags.threadTaken||state.flags.helpedNagi)return 'already';if(!state.flags.lantern||state.phase!=='echo')return 'wrong-phase';state.flags.threadTaken=true;giveItem(state,'redThread');}
+    if(action==='draw-water'){if(hasItem(state,'waterJar')||hasItem(state,'ricePaste')||state.flags.helpedNagi)return 'already';giveItem(state,'waterJar');}
+    if(action==='mix-paste'){if(hasItem(state,'ricePaste')||state.flags.helpedNagi)return 'already';if(!hasItem(state,'waterJar'))return 'missing-water';consume(state,'waterJar');giveItem(state,'ricePaste');}
+    if(action==='meet-nagi'){if(state.flags.nagiMet)return 'already';state.flags.nagiMet=state.flags.repairRequested=true;}
+    if(action==='repair-lamp'){if(state.flags.helpedNagi)return 'already';if(!state.flags.nagiMet)return 'missing-request';if(!hasItem(state,'redThread'))return 'missing-thread';if(!hasItem(state,'ricePaste'))return 'missing-paste';consume(state,'redThread');consume(state,'ricePaste');setFlag(state,'helpedNagi');addClue(state,'lanternOrder');}
+    if(action==='deliver-parcel'){if(state.flags.parcelDelivered)return 'already';if(!state.flags.nagiMet||!hasItem(state,'oldParcel'))return 'missing-parcel';consume(state,'oldParcel');state.flags.parcelDelivered=true;giveItem(state,'routeCard');addClue(state,'rescueRoute');}
+    return 'done';
+  }
   function turnGear(values, index) {
     const next = [...values];
     next[index] = (next[index] + 1) % 4;
@@ -66,9 +93,18 @@
   }
   function finish(state, ending) { if (!canEnd(state, ending)) return false; state.ending = ending; return true; }
   function objective(state) {
-    if (!state.flags.lantern) return ['序章 · 一封迟来的信', '和站台上的青年交谈，寻找姐姐留下的线索。'];
+    if (!state.flags.lantern){
+      if(!state.flags.lampFound)return ['序章 · 熄灭的引灯',state.zone==='station-office'?'调查房内西侧矮柜，取走引灯；值班簿记着火种的去向。':'进入车站西侧的站房，调查储物柜；莲知道这里的旧事。'];
+      if(hasItem(state,'dryMatches'))return ['序章 · 火种',state.zone==='station-office'?'在寄物架对面的整灯台点燃引灯，也可在手记中使用防潮火柴。':'回站房整灯台点燃引灯，或请站台上的莲帮忙挡风。'];
+      if(hasItem(state,'lockerKey'))return ['序章 · 火种','用黄铜钥匙打开站台东端的工具箱，找防潮火柴。'];
+      return ['序章 · 熄灭的引灯','引灯已经找到，却没有火种。向站台上的莲打听工具箱钥匙。'];
+    }
     if (!state.solved.includes('station')) return ['第一章 · 没有日期的车票', '按 Q 看见回忆，调查时刻表，解开检票闸门。'];
-    if (!state.solved.includes('shrine')) return ['第二章 · 灯火记得归路', '走进雾灯町，与制灯人交谈，前往月见神社。'];
+    if (!state.solved.includes('shrine')){
+      if(!state.flags.nagiMet)return ['第二章 · 灯火记得归路','去主街找凪婆婆，了解制灯铺与神社的路；也可探索街边庭院。'];
+      if(state.flags.repairRequested&&!state.flags.helpedNagi)return ['第二章 · 断线的纸灯',!hasItem(state,'redThread')?'在东侧民居的针线篮寻找红线。现世看不见时，试试引灯。':!hasItem(state,'ricePaste')?(hasItem(state,'waterJar')?'把清水带进西侧制灯铺，在糨糊台调开米糊。':'到主街南边的石井取清水，再去制灯铺调糨糊。'):'带着红线和米糊找婆婆，或在制灯铺修灯。也可先去月见神社。'];
+      return ['第二章 · 灯火记得归路','婆婆教会了归舟歌。沿主街往北，到月见神社点亮四方灯阵。'];
+    }
     if (!state.solved.includes('archive')) return ['第三章 · 被划去的那一页', '前往旧校书库，重排祭典之夜的四份记录。'];
     if (!state.solved.includes('tower')) return ['第四章 · 第十三次钟声', '登上钟楼，读懂回忆里的刻痕，让时间重新流动。'];
     return ['终章 · 在天亮以前', '前往渡灯桥作出选择。离开前，还可以寻找遗漏的回忆。'];
@@ -81,7 +117,15 @@
     // A damaged save may never skip a prerequisite or strand the player.
     state.solved = PUZZLES.slice(0, PUZZLES.findIndex((id) => !state.solved.includes(id)) === -1 ? 4 : PUZZLES.findIndex((id) => !state.solved.includes(id)));
     FLAGS.forEach(id => { if (raw.flags?.[id] === true) state.flags[id] = true; });
+    state.items=select(raw.items,ITEMS);
     if (state.solved.length) state.flags.lantern = true;
+    if(state.flags.lantern){state.flags.lampFound=true;giveItem(state,'guideLamp');consume(state,'dryMatches');}
+    if(state.flags.helpedNagi){state.flags.nagiMet=true;consume(state,'redThread');consume(state,'ricePaste');}
+    if(state.flags.parcelDelivered)consume(state,'oldParcel');
+    if(state.flags.lampFound)giveItem(state,'guideLamp');
+    if(state.flags.matchesFound&&!state.flags.lantern)giveItem(state,'dryMatches');
+    if(state.flags.threadTaken&&!state.flags.helpedNagi)giveItem(state,'redThread');
+    if(state.flags.parcelTaken&&!state.flags.parcelDelivered)giveItem(state,'oldParcel');
     state.flags.truth = state.solved.includes('archive');
     state.clues = select(raw.clues, CLUES);
     state.memories = select(raw.memories, MEMORIES);
@@ -101,5 +145,5 @@
     if (canEnd(state, raw.ending)) state.ending = raw.ending;
     return state;
   }
-  return { VERSION, ZONES, PUZZLES, MEMORIES, CLUES, ENDINGS, newGame, canVisit, addClue, collectMemory, setFlag, turnGear, checkPuzzle, puzzleAvailable, solvePuzzle, missingForDawn, canEnd, finish, objective, restore };
+  return { VERSION, ZONES, MAP_ZONES, PUZZLES, MEMORIES, CLUES, ITEMS, ENDINGS, newGame, canVisit, hasItem,giveItem,explore,addClue, collectMemory, setFlag, turnGear, checkPuzzle, puzzleAvailable, solvePuzzle, missingForDawn, canEnd, finish, objective, restore };
 });

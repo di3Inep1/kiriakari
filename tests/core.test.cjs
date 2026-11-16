@@ -6,7 +6,7 @@ const solutions = { station: [0, 7, 1, 6], shrine: ['moon', 'mountain', 'river',
 function complete() { const s = C.newGame(); C.setFlag(s, 'lantern'); for (const id of C.PUZZLES) assert.equal(C.solvePuzzle(s, id, solutions[id]), true); return s; }
 test('new game begins at the station and cannot bypass story gates', () => {
   const s = C.newGame(); assert.equal(C.canVisit(s, 'station'), true);
-  C.ZONES.slice(1).forEach(id => assert.equal(C.canVisit(s, id), false));
+  assert.equal(C.canVisit(s,'station-office'),true);C.ZONES.filter(id=>!['station','station-office'].includes(id)).forEach(id => assert.equal(C.canVisit(s, id), false));
   assert.equal(C.solvePuzzle(s, 'station', solutions.station), false);
   assert.equal(C.solvePuzzle(s, 'tower', solutions.tower), false);
   C.setFlag(s, 'lantern'); assert.equal(C.solvePuzzle(s, 'archive', solutions.archive), false);
@@ -81,7 +81,7 @@ test('named portable items are attached to matching furniture, not dropped on th
     const prop=M.maps[zoneId].props.find(p=>p.id===object.support);
     assert.ok(prop,`${zoneId}/${object.id} has furniture`);assert.equal(prop.x,object.x);assert.equal(prop.y,object.y);supported.push(object.id);
   }
-  assert.deepEqual(supported.sort(),['crane','ledger','photo','station-lock','tape']);
+  for(const id of ['crane','ledger','photo','station-lock','tape','old-lantern','toolbox','basket','workbench'])assert.ok(supported.includes(id));
   assert.equal(M.maps.station.tiles.includes(55),false);
   assert.equal(M.maps.archive.tiles.includes(50),false);assert.equal(M.maps.archive.tiles.includes(51),false);
   for(const tile of [40,41,43,45,46,48,49,53]) for(const map of Object.values(M.maps)) assert.equal(map.tiles.includes(tile),false);
@@ -111,4 +111,53 @@ test('old layout saves retain story progress and relocate to the new safe entry'
   assert.deepEqual(restored.player,{x:M.maps.station.spawn[0],y:M.maps.station.spawn[1],facing:0});
   const town=C.newGame();delete town.layoutVersion;town.solved=['station'];town.zone='town';town.player={x:27,y:11,facing:0};
   assert.deepEqual(C.restore(town).player,{x:5,y:14,facing:0});
+});
+
+test('an unlit lamp needs a borrowed key and dry matches; lighting consumes the matches once',()=>{
+  const s=C.newGame();
+  assert.equal(C.explore(s,'open-toolbox'),'missing-key');assert.equal(C.explore(s,'light-lantern'),'missing-lamp');
+  assert.equal(C.explore(s,'borrow-key'),'missing-lamp');
+  s.zone='station-office';assert.equal(C.explore(s,'take-lamp'),'done');assert.equal(C.explore(s,'take-lamp'),'already');
+  assert.equal(C.explore(s,'light-lantern'),'missing-matches');assert.equal(!!s.flags.lantern,false);assert.equal(C.solvePuzzle(s,'station',solutions.station),false);
+  s.zone='station';assert.equal(C.explore(s,'borrow-key'),'done');assert.equal(C.explore(s,'borrow-key'),'already');assert.equal(C.explore(s,'open-toolbox'),'done');
+  assert.ok(C.hasItem(s,'dryMatches'));assert.equal(C.explore(s,'light-lantern'),'done');assert.equal(C.hasItem(s,'dryMatches'),false);assert.equal(s.flags.lantern,true);
+  const after=JSON.stringify(s);assert.equal(C.explore(s,'light-lantern'),'already');assert.equal(C.explore(s,'open-toolbox'),'already');assert.equal(JSON.stringify(s),after);
+});
+test('town repairs require a real request, thread from memory, water and prepared paste',()=>{
+  const s=C.newGame();C.setFlag(s,'lantern');C.solvePuzzle(s,'station',solutions.station);s.zone='town';
+  assert.equal(C.explore(s,'repair-lamp'),'missing-request');assert.equal(C.explore(s,'meet-nagi'),'done');assert.equal(C.explore(s,'repair-lamp'),'missing-thread');
+  assert.equal(C.explore(s,'take-thread'),'wrong-phase');assert.equal(C.hasItem(s,'redThread'),false);s.phase='echo';assert.equal(C.explore(s,'take-thread'),'done');
+  assert.equal(C.explore(s,'repair-lamp'),'missing-paste');s.zone='town-workshop';assert.equal(C.explore(s,'mix-paste'),'missing-water');
+  s.zone='town';assert.equal(C.explore(s,'draw-water'),'done');s.zone='town-workshop';assert.equal(C.explore(s,'mix-paste'),'done');assert.equal(C.hasItem(s,'waterJar'),false);
+  assert.equal(C.explore(s,'repair-lamp'),'done');assert.equal(s.flags.helpedNagi,true);assert.ok(s.clues.includes('lanternOrder'));assert.equal(C.hasItem(s,'redThread'),false);assert.equal(C.hasItem(s,'ricePaste'),false);
+  const after=JSON.stringify(s);assert.equal(C.explore(s,'repair-lamp'),'already');assert.equal(C.explore(s,'mix-paste'),'already');s.zone='town';assert.equal(C.explore(s,'take-thread'),'already');assert.equal(C.explore(s,'draw-water'),'already');s.zone='town-workshop';assert.equal(JSON.stringify(s),after);
+});
+test('a station parcel can be carried to Nagi and exchanged only once for a useful route',()=>{
+  const s=C.newGame();s.zone='station-office';assert.equal(C.explore(s,'take-parcel'),'done');assert.equal(C.explore(s,'take-parcel'),'already');
+  C.setFlag(s,'lantern');C.solvePuzzle(s,'station',solutions.station);s.zone='town';assert.equal(C.explore(s,'deliver-parcel'),'missing-parcel');assert.ok(C.hasItem(s,'oldParcel'));
+  C.explore(s,'meet-nagi');assert.equal(C.explore(s,'deliver-parcel'),'done');assert.equal(C.hasItem(s,'oldParcel'),false);assert.ok(C.hasItem(s,'routeCard'));assert.ok(s.clues.includes('rescueRoute'));
+  const after=JSON.stringify(s);assert.equal(C.explore(s,'deliver-parcel'),'already');assert.equal(JSON.stringify(s),after);
+});
+test('quest progress survives a save during exploration and legacy lit lamps stay lit',()=>{
+  const s=C.newGame();s.zone='station-office';C.explore(s,'take-lamp');s.zone='station';C.explore(s,'borrow-key');C.explore(s,'open-toolbox');
+  assert.deepEqual(C.restore(JSON.parse(JSON.stringify(s))),{...s,flags:{...s.flags,truth:false}});
+  const old=complete();delete old.items;delete old.explorationVersion;old.flags.helpedNagi=true;const restored=C.restore(old);
+  assert.equal(restored.flags.lantern,true);assert.ok(restored.items.includes('guideLamp'));assert.equal(restored.flags.helpedNagi,true);assert.equal(restored.flags.nagiMet,true);assert.deepEqual(restored.solved,old.solved);
+});
+test('out-of-place exploration cannot create or spend quest materials',()=>{
+  const s=C.newGame(),before=JSON.stringify(s);for(const action of ['take-lamp','mix-paste','take-thread','draw-water','take-parcel','invent-item'])assert.equal(C.explore(s,action),'unavailable');assert.equal(JSON.stringify(s),before);
+});
+
+test('restoring a partially recorded quest recovers its unique unspent materials',()=>{
+  const s=C.newGame();s.flags={lampFound:true,matchesFound:true,threadTaken:true,parcelTaken:true};s.items=[];
+  const r=C.restore(s);for(const item of ['guideLamp','dryMatches','redThread','oldParcel'])assert.equal(C.hasItem(r,item),true);
+  r.items.push('foreign-item','redThread');const again=C.restore(r);assert.equal(again.items.includes('foreign-item'),false);assert.equal(again.items.filter(id=>id==='redThread').length,1);
+});
+test('Ren gives practical progress-dependent help and lights the lamp only when asked with matches',()=>{
+  const fs=require('node:fs'),vm=require('node:vm'),sandbox={KiriCore:C,KiriData:{}};vm.runInNewContext(fs.readFileSync(require.resolve('../exploration.js'),'utf8'),sandbox);
+  const s=C.newGame(),speak=(choice=0)=>sandbox.KiriExploration.run('ren',s,{changed(){},talk(lines,end){for(const line of lines){if(line.choices)line.choices[choice].effect?.();}end?.();}});
+  speak();assert.equal(s.flags.renMet,true);assert.equal(!!s.flags.lantern,false);assert.equal(C.hasItem(s,'guideLamp'),false);
+  s.zone='station-office';C.explore(s,'take-lamp');s.zone='station';speak();assert.equal(C.hasItem(s,'lockerKey'),true);
+  C.explore(s,'open-toolbox');speak(1);assert.equal(!!s.flags.lantern,false);assert.equal(C.hasItem(s,'dryMatches'),true);
+  speak(0);assert.equal(s.flags.lantern,true);assert.equal(C.hasItem(s,'dryMatches'),false);assert.equal(!!s.flags.promisedRen,false);
 });

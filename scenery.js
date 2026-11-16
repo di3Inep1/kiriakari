@@ -31,7 +31,7 @@
     Object.values(maps).forEach((map, index) => {
       const seed = index + 31;
       map.scenery = []; map.materials = map.tiles.map(kind);
-      const protectedPoints=map.anchors?[map.spawn,...Object.values(map.anchors)]:reserved[map.id];
+      const protectedPoints=map.anchors?[map.spawn,...Object.values(map.anchors)]:(reserved[map.id]||[map.spawn]);
       const protectedAt = (x,y,r = 1.1) => protectedPoints.some(([px,py]) => Math.hypot(px-x,py-y) < r);
       const place = (sprite,x,y,size = 1,solid = false) => {
         const cx=Math.round(x), cy=Math.round(y);

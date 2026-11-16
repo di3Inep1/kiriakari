@@ -8,6 +8,10 @@
   const stoneGrain = new Image(); stoneGrain.src = 'assets/stone-grain.png';
   const stationKit=new Image();stationKit.src='assets/station-fixtures-v2.png';
   const craneImage=new Image();craneImage.src='assets/hanging-crane.png';
+  const explorationImage=new Image();explorationImage.src='assets/exploration-props.png';
+  const explorationCleared=new Image();explorationCleared.src='assets/exploration-props-cleared.png';
+  const woodGrain=new Image();woodGrain.src='assets/interior-wood-grain.png';
+  const tatamiImage=new Image();tatamiImage.src='assets/tatami-mat.png';let tatamiBounds=null;
   const view = { tile: 48, x: 0, y: 0, width: 1, height: 1, zone: 'station' };
   const canvas = document.getElementById('tile-map'), ctx = canvas.getContext('2d');
   const scenery = document.createElement('div'); scenery.id = 'scenery'; scenery.setAttribute('aria-hidden','true');
@@ -20,6 +24,7 @@
   let sceneryZone = null, sceneryNodes = [];
   let propNodes = [];
   const pavingCache=new Map(), contextPatterns=new WeakMap();
+  const timberCache=new Map();
   let dpr = 1;
   function resize() {
     const rect = document.getElementById('world').getBoundingClientRect();
@@ -49,11 +54,36 @@
     }
     pavingCache.set(size,unit);return unit;
   }
+  function timberUnit(size){
+    if(timberCache.has(size))return timberCache.get(size);
+    const plank=size*3,row=Math.max(3,Math.round(size/4)),unit=document.createElement('canvas');unit.width=plank*2;unit.height=row*2;
+    const pen=unit.getContext('2d');pen.imageSmoothingEnabled=false;pen.fillStyle='#493c34';pen.fillRect(0,0,unit.width,unit.height);
+    for(let r=0;r<2;r++)for(let c=-1;c<3;c++){
+      const x=c*plank+(r%2?plank/2:0),y=r*row;
+      pen.fillStyle='#715b49';pen.fillRect(x+1,y+1,plank-1,row-1);pen.globalAlpha=.72;
+      pen.drawImage(woodGrain,0,0,woodGrain.naturalWidth,woodGrain.naturalHeight,x+1,y+1,plank-1,row-1);pen.globalAlpha=1;
+      pen.fillStyle='rgba(237,217,190,.07)';pen.fillRect(x+1,y+1,plank-1,1);
+    }
+    timberCache.set(size,unit);return unit;
+  }
+  function groundMaterial(map,index){return ['station-office','town-workshop'].includes(map.id)&&map.materials[index]==='wood'?'timber':map.materials[index];}
+  function drawTatami(pen,map,size,originX=0,originY=0){
+    if(!map.tatami.length||!tatamiImage.complete||!tatamiImage.naturalWidth)return;
+    if(!tatamiBounds){
+      const sample=document.createElement('canvas');sample.width=tatamiImage.naturalWidth;sample.height=tatamiImage.naturalHeight;
+      const scan=sample.getContext('2d');scan.drawImage(tatamiImage,0,0);const pixels=scan.getImageData(0,0,sample.width,sample.height).data;
+      let minX=sample.width,minY=sample.height,maxX=0,maxY=0;
+      for(let y=0;y<sample.height;y++)for(let x=0;x<sample.width;x++)if(pixels[(y*sample.width+x)*4+3]>180){minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);}
+      tatamiBounds={x:minX,y:minY,w:maxX-minX+1,h:maxY-minY+1};
+    }
+    const b=tatamiBounds;map.tatami.forEach(mat=>pen.drawImage(tatamiImage,b.x,b.y,b.w,b.h,mat.x*size-originX,mat.y*size-originY,mat.width*size,mat.height*size));
+  }
   function texture(pen, tile, x, y, size, material, originX=0,originY=0) {
-    if(material==='stone'&&stoneGrain.complete&&stoneGrain.naturalWidth) {
+    if((material==='stone'&&stoneGrain.complete&&stoneGrain.naturalWidth)||(material==='timber'&&woodGrain.complete&&woodGrain.naturalWidth)) {
       let patterns=contextPatterns.get(pen);if(!patterns) {patterns=new Map();contextPatterns.set(pen,patterns);}
-      if(!patterns.has(size)) patterns.set(size,pen.createPattern(pavingUnit(size),'repeat'));
-      const pattern=patterns.get(size);pattern.setTransform(new DOMMatrix().translate(-originX,-originY));
+      const key=material+':'+size;
+      if(!patterns.has(key)) patterns.set(key,pen.createPattern(material==='timber'?timberUnit(size):pavingUnit(size),'repeat'));
+      const pattern=patterns.get(key);pattern.setTransform(new DOMMatrix().translate(-originX,-originY));
       pen.fillStyle=pattern;pen.fillRect(x,y,size,size);return;
     }
     const source=image, columns=8, rows=8, id=tile;
@@ -83,9 +113,10 @@
     ctx.strokeStyle='rgba(13,30,33,.12)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(fx,fy);
     ctx.lineTo(fx+size*.075,fy+size*.025);ctx.lineTo(fx+size*.12,fy-size*.02);ctx.stroke();
   }
-  function propFrame(prop,solved=[]){
-    const source=prop.atlas==='world'?worldProps:prop.atlas==='station'?stationKit:prop.atlas==='crane'?craneImage:mountedImage;
-    const columns=prop.atlas==='world'?4:prop.atlas==='crane'?1:2,rows=prop.atlas==='crane'?1:2;
+  function propFrame(prop,solved=[],progress={}){
+    const cleared=(prop.clearedBy&&progress.flags?.[prop.clearedBy])||(prop.onlyItemInEcho&&progress.phase!=='echo');
+    const source=prop.atlas==='exploration'?(cleared?explorationCleared:explorationImage):prop.atlas==='world'?worldProps:prop.atlas==='station'?stationKit:prop.atlas==='crane'?craneImage:mountedImage;
+    const columns=['world','exploration'].includes(prop.atlas)?4:prop.atlas==='crane'?1:2,rows=prop.atlas==='crane'?1:2;
     const sprite=prop.gate&&solved.includes(prop.gate)?prop.openSprite:prop.sprite;
     return {source,columns,rows,sprite};
   }
@@ -125,7 +156,7 @@
       pen.fillStyle='#20232a';pen.fillRect(left,bottom+size*.14,right-left,Math.max(1,size*.045));
     });
   }
-  function drawScenery(map,solved) {
+  function drawScenery(map,solved,progress) {
     if(sceneryZone!==map.id) {
       sceneryZone=map.id; scenery.replaceChildren();
       sceneryNodes=map.scenery.map(plant=>{
@@ -154,7 +185,7 @@
       if(!node.hidden) { node.style.left=p.x+'px';node.style.top=p.y+'px'; }
     });
     propNodes.forEach(item=>{
-      const {prop,node,thread}=item,frame=propFrame(prop,solved),key=prop.atlas+'-'+frame.sprite;
+      const {prop,node,thread}=item,frame=propFrame(prop,solved,progress),key=prop.atlas+'-'+frame.sprite+'-'+(frame.source===explorationCleared?'cleared':'original');
       if(item.painted!==key&&frame.source.complete&&frame.source.naturalWidth){
         const {source,columns,rows,sprite}=frame,sw=source.naturalWidth/columns,sh=source.naturalHeight/rows,pen=node.getContext('2d');
         pen.imageSmoothingEnabled=false;pen.clearRect(0,0,256,256);pen.drawImage(source,(sprite%columns)*sw+4,Math.floor(sprite/columns)*sh+4,sw-8,sh-8,0,0,256,256);item.painted=key;
@@ -184,7 +215,7 @@
     }
     buildingNodes.forEach(({b,node})=>{node.style.left=Math.round((b.x-.6-view.x)*size)+'px';node.style.top=Math.round((b.y-.1-view.y)*size)+'px';});
   }
-  function draw(zone, player, time, phase,solved=[]) {
+  function draw(zone, player, time, phase,solved=[],progress={}) {
     const map = root.KiriMaps.maps[zone]; view.zone = zone;
     const cols = view.width / view.tile, rows = view.height / view.tile;
     const camera = (p, span, extent) => extent < span ? -(span - extent) / 2 : Math.max(0, Math.min(extent - span, p + .5 - span / 2));
@@ -198,7 +229,7 @@
         const id = map.tiles[y * map.w + x];
         const px=x*view.tile-originX,py=y*view.tile-originY;
         const building=buildingAt(map,x,y);
-        texture(ctx,building?map.floor:id,px,py,view.tile,building?'grass':map.materials[y*map.w+x],originX,originY);
+        texture(ctx,building?map.floor:id,px,py,view.tile,building?'grass':groundMaterial(map,y*map.w+x),originX,originY);
         blendEdge(map,x,y,px,py);
         fineWear(map,x,y,px,py);
         if(map.materials[y*map.w+x]!=='object'&&y>0&&[17,21,22,25,28].includes(map.tiles[(y-1)*map.w+x])) {
@@ -208,7 +239,7 @@
         if (id === 6 || id === 7) { ctx.fillStyle = `rgba(102,183,206,${.04 + Math.sin(time * .0015 + x * .7 + y * .3) * .035})`; ctx.fillRect(px, py, view.tile, view.tile); }
       }
     }
-    drawPlatform(ctx,map,view.tile,originX,originY);
+    drawTatami(ctx,map,view.tile,originX,originY);drawPlatform(ctx,map,view.tile,originX,originY);
     ctx.fillStyle = phase === 'echo' ? 'rgba(226,210,174,.07)' : 'rgba(5,22,38,.22)'; ctx.fillRect(0, 0, view.width, view.height);
     map.lights.forEach(({x,y})=>{
       const p = project({ x, y: y - .35 }), radius = view.tile * 1.7;
@@ -217,15 +248,15 @@
       gradient.addColorStop(0, 'rgba(255,194,93,.20)'); gradient.addColorStop(1, 'rgba(255,194,93,0)');
       ctx.fillStyle = gradient; ctx.fillRect(p.x - radius, p.y - radius, radius * 2, radius * 2);
     });
-    drawBuildingLayer(map,phase);drawScenery(map,solved);
+    drawBuildingLayer(map,phase);drawScenery(map,solved,progress);
   }
-  function thumbnail(zone, output,solved=[]) {
+  function thumbnail(zone, output,solved=[],progress={}) {
     const map = root.KiriMaps.maps[zone], size = 8;
     output.width = map.w * size; output.height = map.h * size;
     const pen = output.getContext('2d'); pen.imageSmoothingEnabled = false;
     if (!image.complete || !image.naturalWidth) return;
-    map.tiles.forEach((tile, i) => {const x=i%map.w,y=Math.floor(i/map.w),building=buildingAt(map,x,y);texture(pen,building?map.floor:tile,x*size,y*size,size,building?'grass':map.materials[i]);});
-    drawPlatform(pen,map,size);
+    map.tiles.forEach((tile, i) => {const x=i%map.w,y=Math.floor(i/map.w),building=buildingAt(map,x,y);texture(pen,building?map.floor:tile,x*size,y*size,size,building?'grass':groundMaterial(map,i));});
+    drawTatami(pen,map,size);drawPlatform(pen,map,size);
     const layers=map.buildings.map(b=>({z:depth(b.frontY-.92),draw:()=>paintBuilding(pen,map,b,size,0,0)}));
     if(foliage.complete&&foliage.naturalWidth) {
       const sw=foliage.naturalWidth/4,sh=foliage.naturalHeight/4;
@@ -234,8 +265,8 @@
         pen.drawImage(foliage,p.sprite%4*sw,Math.floor(p.sprite/4)*sh,sw,sh,(p.x+.5)*size-extent*.5,(p.y+.92)*size-extent*.96,extent,extent);
       }}));
     }
-    map.props.forEach(p=>{const pose=root.KiriMaps.attachmentPose(zone,p);layers.push({z:pose?depth(pose.building.frontY-.92,1):depth(p.y,-1),draw:()=>{const {source,columns,rows,sprite}=propFrame(p,solved);if(!source.complete||!source.naturalWidth)return;const sw=source.naturalWidth/columns,sh=source.naturalHeight/rows,extent=p.size*size,x=pose?pose.x:p.x+.5,y=pose?pose.bottomY:p.y+.92;pen.drawImage(source,sprite%columns*sw+4,Math.floor(sprite/columns)*sh+4,sw-8,sh-8,x*size-extent*.5,y*size-extent*.985,extent,extent);}});});
+    map.props.forEach(p=>{const pose=root.KiriMaps.attachmentPose(zone,p);layers.push({z:pose?depth(pose.building.frontY-.92,1):depth(p.y,-1),draw:()=>{const {source,columns,rows,sprite}=propFrame(p,solved,progress);if(!source.complete||!source.naturalWidth)return;const sw=source.naturalWidth/columns,sh=source.naturalHeight/rows,extent=p.size*size,x=pose?pose.x:p.x+.5,y=pose?pose.bottomY:p.y+.92;pen.drawImage(source,sprite%columns*sw+4,Math.floor(sprite/columns)*sh+4,sw-8,sh-8,x*size-extent*.5,y*size-extent*.985,extent,extent);}});});
     layers.sort((a,b)=>a.z-b.z).forEach(layer=>layer.draw());
   }
-  root.KiriRenderer = { view, resize, draw, project, unproject, thumbnail, depth, assetsReady:()=>[image,foliage,mountedImage,worldProps,stoneGrain,stationKit,craneImage].every(i=>i.complete&&i.naturalWidth>0)&&!!root.KiriLighting?.assetsReady() };
+  root.KiriRenderer = { view, resize, draw, project, unproject, thumbnail, depth, assetsReady:()=>[image,foliage,mountedImage,worldProps,stoneGrain,stationKit,craneImage,explorationImage,explorationCleared,woodGrain,tatamiImage].every(i=>i.complete&&i.naturalWidth>0)&&!!root.KiriLighting?.assetsReady() };
 })(globalThis);
