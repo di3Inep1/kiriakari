@@ -13,6 +13,10 @@
   const scenery = document.createElement('div'); scenery.id = 'scenery'; scenery.setAttribute('aria-hidden','true');
   document.getElementById('world').appendChild(scenery);
   const furniture = document.createElement('div'); furniture.id='furniture';furniture.setAttribute('aria-hidden','true');document.getElementById('world').appendChild(furniture);
+  const buildings=document.createElement('div');buildings.id='buildings';buildings.setAttribute('aria-hidden','true');document.getElementById('world').appendChild(buildings);
+  const depth=(y,bias=0)=>Math.round((y+.92)*100)+100+bias;
+  const buildingAt=(map,x,y)=>map.buildings.find(b=>x>=b.x&&x<b.x+b.width&&y>=b.y&&y<b.frontY);
+  let buildingNodes=[],buildingKey='';
   let sceneryZone = null, sceneryNodes = [];
   let propNodes = [];
   const pavingCache=new Map(), contextPatterns=new WeakMap();
@@ -127,7 +131,8 @@
       sceneryNodes=map.scenery.map(plant=>{
         const node=document.createElement('div');node.className='scenery-sprite'+(plant.sprite<8?' tree':' plant')+(plant.sprite===15?' leaves':'');
         node.style.setProperty('--plant-scale',plant.size);
-        node.style.zIndex=String(Math.round(plant.y*5)+8);
+        node.style.zIndex=String(plant.sprite===15?0:depth(plant.y,-1));
+        node.dataset.groundY=String(plant.y);node.dataset.sprite=String(plant.sprite);
         const art=document.createElement('span');art.className='scenery-art';
         art.style.backgroundPosition=`${plant.sprite%4*100/3}% ${Math.floor(plant.sprite/4)*100/3}%`;
         const shadow=document.createElement('span');shadow.className='scenery-shadow';
@@ -138,7 +143,7 @@
         const node=document.createElement('canvas');node.className='scene-prop';node.dataset.prop=prop.id;
         node.width=256;node.height=256;node.style.setProperty('--prop-scale',prop.size);
         const pose=root.KiriMaps.attachmentPose(map.id,prop);
-        node.style.zIndex=String(pose?Math.round(pose.building.frontY*5)+18:Math.round(prop.y*5)+(prop.hanging?12:7));
+        node.style.zIndex=String(pose?depth(pose.building.frontY-.92,1):depth(prop.y,-1));
         let thread=null;if(pose){thread=document.createElement('span');thread.className='roof-thread';thread.dataset.attachment=prop.attachment.building;thread.style.zIndex=node.style.zIndex;furniture.appendChild(thread);}
         furniture.appendChild(node);return {prop,node,thread,painted:null};
       });
@@ -159,6 +164,26 @@
       if(thread){const a=project({x:pose.x-.5,y:pose.threadY-.92});thread.style.left=a.x+'px';thread.style.top=a.y+'px';thread.style.height=Math.max(0,(pose.bottomY-prop.size*.5-pose.threadY)*view.tile)+'px';}
     });
   }
+  function paintBuilding(pen,map,b,size,originX,originY){
+    for(let y=b.eaveY;y<b.frontY;y++)for(let x=b.x;x<b.x+b.width;x++)texture(pen,map.tiles[y*map.w+x],x*size-originX,y*size-originY,size,'object');
+    drawBuildings(pen,{buildings:[b]},size,originX,originY);
+  }
+  function drawBuildingLayer(map,phase){
+    const size=view.tile,key=map.id+':'+size+':'+phase;
+    if(key!==buildingKey){
+      buildingKey=key;buildings.replaceChildren();
+      buildingNodes=map.buildings.map(b=>{
+        const node=document.createElement('canvas');node.className='building-sprite';node.dataset.building=b.id;
+        node.width=Math.ceil((b.width+1.2)*size);node.height=Math.ceil((b.height+.4)*size);
+        node.style.zIndex=String(depth(b.frontY-.92));
+        const pen=node.getContext('2d');pen.imageSmoothingEnabled=false;
+        paintBuilding(pen,map,b,size,(b.x-.6)*size,(b.y-.1)*size);
+        pen.globalCompositeOperation='source-atop';pen.fillStyle=phase==='echo'?'rgba(59,84,123,.19)':'rgba(5,22,38,.22)';pen.fillRect(0,0,node.width,node.height);
+        buildings.appendChild(node);return {b,node};
+      });
+    }
+    buildingNodes.forEach(({b,node})=>{node.style.left=Math.round((b.x-.6-view.x)*size)+'px';node.style.top=Math.round((b.y-.1-view.y)*size)+'px';});
+  }
   function draw(zone, player, time, phase,solved=[]) {
     const map = root.KiriMaps.maps[zone]; view.zone = zone;
     const cols = view.width / view.tile, rows = view.height / view.tile;
@@ -172,8 +197,8 @@
       for (let x = Math.max(0, Math.floor(view.x)); x < Math.min(map.w, Math.ceil(view.x + cols)); x++) {
         const id = map.tiles[y * map.w + x];
         const px=x*view.tile-originX,py=y*view.tile-originY;
-        const roofCell=map.buildings.some(b=>x>=b.x&&x<b.x+b.width&&y>=b.y&&y<b.eaveY);
-        texture(ctx,roofCell?map.floor:id,px,py,view.tile,roofCell?'grass':map.materials[y*map.w+x],originX,originY);
+        const building=buildingAt(map,x,y);
+        texture(ctx,building?map.floor:id,px,py,view.tile,building?'grass':map.materials[y*map.w+x],originX,originY);
         blendEdge(map,x,y,px,py);
         fineWear(map,x,y,px,py);
         if(map.materials[y*map.w+x]!=='object'&&y>0&&[17,21,22,25,28].includes(map.tiles[(y-1)*map.w+x])) {
@@ -183,7 +208,6 @@
         if (id === 6 || id === 7) { ctx.fillStyle = `rgba(102,183,206,${.04 + Math.sin(time * .0015 + x * .7 + y * .3) * .035})`; ctx.fillRect(px, py, view.tile, view.tile); }
       }
     }
-    drawBuildings(ctx,map,view.tile,originX,originY);
     drawPlatform(ctx,map,view.tile,originX,originY);
     ctx.fillStyle = phase === 'echo' ? 'rgba(59,84,123,.19)' : 'rgba(5,22,38,.22)'; ctx.fillRect(0, 0, view.width, view.height);
     map.lights.forEach(({x,y})=>{
@@ -193,24 +217,25 @@
       gradient.addColorStop(0, 'rgba(255,194,93,.20)'); gradient.addColorStop(1, 'rgba(255,194,93,0)');
       ctx.fillStyle = gradient; ctx.fillRect(p.x - radius, p.y - radius, radius * 2, radius * 2);
     });
-    drawScenery(map,solved);
+    drawBuildingLayer(map,phase);drawScenery(map,solved);
   }
   function thumbnail(zone, output,solved=[]) {
     const map = root.KiriMaps.maps[zone], size = 8;
     output.width = map.w * size; output.height = map.h * size;
     const pen = output.getContext('2d'); pen.imageSmoothingEnabled = false;
     if (!image.complete || !image.naturalWidth) return;
-    map.tiles.forEach((tile, i) => {const x=i%map.w,y=Math.floor(i/map.w),roofCell=map.buildings.some(b=>x>=b.x&&x<b.x+b.width&&y>=b.y&&y<b.eaveY);texture(pen,roofCell?map.floor:tile,x*size,y*size,size,roofCell?'grass':map.materials[i]);});
-    drawBuildings(pen,map,size);
+    map.tiles.forEach((tile, i) => {const x=i%map.w,y=Math.floor(i/map.w),building=buildingAt(map,x,y);texture(pen,building?map.floor:tile,x*size,y*size,size,building?'grass':map.materials[i]);});
     drawPlatform(pen,map,size);
+    const layers=map.buildings.map(b=>({z:depth(b.frontY-.92),draw:()=>paintBuilding(pen,map,b,size,0,0)}));
     if(foliage.complete&&foliage.naturalWidth) {
       const sw=foliage.naturalWidth/4,sh=foliage.naturalHeight/4;
-      map.scenery.forEach(p=>{
+      map.scenery.forEach(p=>layers.push({z:p.sprite===15?0:depth(p.y,-1),draw:()=>{
         const extent=p.size*size;
         pen.drawImage(foliage,p.sprite%4*sw,Math.floor(p.sprite/4)*sh,sw,sh,(p.x+.5)*size-extent*.5,(p.y+.92)*size-extent*.96,extent,extent);
-      });
+      }}));
     }
-    map.props.forEach(p=>{const {source,columns,rows,sprite}=propFrame(p,solved);if(!source.complete||!source.naturalWidth)return;const sw=source.naturalWidth/columns,sh=source.naturalHeight/rows,extent=p.size*size,pose=root.KiriMaps.attachmentPose(zone,p),x=pose?pose.x:p.x+.5,y=pose?pose.bottomY:p.y+.92;pen.drawImage(source,sprite%columns*sw+4,Math.floor(sprite/columns)*sh+4,sw-8,sh-8,x*size-extent*.5,y*size-extent*.985,extent,extent);});
+    map.props.forEach(p=>{const pose=root.KiriMaps.attachmentPose(zone,p);layers.push({z:pose?depth(pose.building.frontY-.92,1):depth(p.y,-1),draw:()=>{const {source,columns,rows,sprite}=propFrame(p,solved);if(!source.complete||!source.naturalWidth)return;const sw=source.naturalWidth/columns,sh=source.naturalHeight/rows,extent=p.size*size,x=pose?pose.x:p.x+.5,y=pose?pose.bottomY:p.y+.92;pen.drawImage(source,sprite%columns*sw+4,Math.floor(sprite/columns)*sh+4,sw-8,sh-8,x*size-extent*.5,y*size-extent*.985,extent,extent);}});});
+    layers.sort((a,b)=>a.z-b.z).forEach(layer=>layer.draw());
   }
-  root.KiriRenderer = { view, resize, draw, project, unproject, thumbnail, assetsReady:()=>[image,foliage,mountedImage,worldProps,stoneGrain,stationKit,craneImage].every(i=>i.complete&&i.naturalWidth>0) };
+  root.KiriRenderer = { view, resize, draw, project, unproject, thumbnail, depth, assetsReady:()=>[image,foliage,mountedImage,worldProps,stoneGrain,stationKit,craneImage].every(i=>i.complete&&i.naturalWidth>0) };
 })(globalThis);

@@ -152,6 +152,10 @@ async function main() {
   })()`);
   for(const pixel of mortar) for(let channel=0;channel<4;channel++) assert.ok(Math.abs(pixel[channel]-mortar[0][channel])<=1,'Mortar continues through map-cell boundaries');
   await pause(4300); await screenshot('preview-station.png');
+  assert.equal(await evaluate(`(()=>{
+    const z=e=>+getComputedStyle(e).zIndex,building=document.querySelector('[data-building="station-office"]'),buffer=document.querySelector('[data-prop="rail-buffer"]');
+    return z(buffer)<z(building)&&z(document.getElementById('player'))>z(building)&&z(document.querySelector('.phase-button'))>z(building);
+  })()`),true,'Rail buffer stays behind the projecting station roof; platform actors and HUD stay in front');
   await object('station-lock', false);
   await click('#puzzle-check'); assert.match(await evaluate("document.getElementById('puzzle-status').textContent"), /没有打开/);
   for (const [index, count] of [[1, 7], [2, 1], [3, 6]]) for (let i = 0; i < count; i++) await click(`[data-digit="${index}"][data-delta="1"]`);
@@ -166,7 +170,13 @@ async function main() {
   await waitFor("document.getElementById('player').dataset.tileX==='27'&&document.getElementById('player').dataset.tileY==='9'");
   assert.equal(await evaluate("document.querySelector('.roof-thread').dataset.attachment"),'town-east-house');
   const craneClip=await evaluate("(()=>{const r=document.getElementById('world').getBoundingClientRect(),p=KiriRenderer.project({x:27,y:8});return {x:Math.min(innerWidth-640,Math.max(r.left+6,r.left+p.x-320)),y:Math.max(r.top+6,r.top+p.y-240),width:640,height:400,scale:1}})()");
-  await screenshot('preview-crane-detail.png',craneClip);await object('crane');
+  await screenshot('preview-crane-detail.png',craneClip);
+  assert.equal(await evaluate(`(()=>{
+    const z=e=>+getComputedStyle(e).zIndex,b=KiriMaps.maps.town.buildings.find(b=>b.id==='town-east-house'),building=document.querySelector('[data-building="town-east-house"]'),bird=document.querySelector('[data-prop="eave-crane"]');
+    const plants=[...document.querySelectorAll('.scenery-sprite:not(.leaves)')];
+    return z(bird)>z(building)&&plants.filter(p=>+p.dataset.groundY+.92<b.frontY).every(p=>z(p)<z(building))&&plants.filter(p=>+p.dataset.groundY+.92>b.frontY).every(p=>z(p)>z(building))&&KiriRenderer.depth(b.frontY-.92-.02)<z(building)&&KiriRenderer.depth(b.frontY-.92+.02)>z(building);
+  })()`),true,'Flowers sort by their roots, attached crane follows the wall, and depth crosses smoothly at the wall baseline');
+  results.push('Unified wall, eave, buffer, flower and actor occlusion; HUD above scene');await object('crane');
   assert.equal((await saved()).flags.helpedNagi, true);
   await map('shrine'); await object('mural'); await object('lanterns', false);
   for (const symbol of ['moon', 'mountain', 'river', 'boat']) await click(`[data-lantern="${symbol}"]`);

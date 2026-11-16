@@ -105,7 +105,7 @@
     const player = $('player'), point = R.project(visual); player.style.left = point.x + 'px'; player.style.top = point.y + 'px';
     player.dataset.tileX = state.player.x; player.dataset.tileY = state.player.y;
     $('world').dataset.zone = state.zone;
-    player.style.zIndex = String(Math.round(visual.y * 5) + 10);
+    player.style.zIndex = String(R.depth(visual.y));
     const frame=walking?motion.frame:1;
     player.querySelector('.sprite').style.backgroundPosition = `${walkSheetReady?frame*50:0}% ${state.player.facing * 100 / 3}%`;
     player.dataset.walkFrame=String(frame);player.dataset.facing=String(state.player.facing);
@@ -116,7 +116,7 @@
       const el = $(`object-${obj.id}`), position = R.project(M.focusPoint(state.zone,obj));
       if (el) {
         const prop=obj.support&&M.maps[state.zone].props.find(p=>p.id===obj.support),pose=prop&&M.attachmentPose(state.zone,prop);
-        el.style.left=position.x+'px';el.style.top=position.y+'px';el.style.zIndex=String(pose?Math.round(pose.building.frontY*5)+22:Math.round(obj.y*5)+(obj.character!==undefined?10:16));
+        el.style.left=position.x+'px';el.style.top=position.y+'px';el.style.zIndex=String(pose?R.depth(pose.building.frontY-.92,3):R.depth(obj.y,obj.character!==undefined?0:3));
       }
     });
     if (target) showClickTarget(target);
