@@ -196,3 +196,11 @@ test('furniture placement rejects fractional origins and overlapping boxes',()=>
   assert.throws(()=>F.place(map,'outside','waitingBench',7,1),/outside/);
   F.place(map,'window','shojiWindow',4,1);assert.throws(()=>F.place(map,'overlapping-lamp','wallLamp',5,2),/wall fixtures/);
 });
+test('interior art uses only grid-designed atlases and preserves source proportions',()=>{
+  const F=require('../furniture.js');
+  for(const zone of ['station-office','town-workshop'])for(const p of M.maps[zone].props)assert.ok(['prefab','decor','gridInterior'].includes(p.atlas),p.id+' must not reuse legacy furniture');
+  for(const [w,h,sw,sh,mount] of [[32,64,173,351,false],[96,64,388,245,false],[64,32,301,177,false],[32,32,217,271,true]]){
+    const r=F.fitArt(w,h,sw,sh,mount);assert.ok(Math.abs(r.w/r.h-sw/sh)<1e-10,'Uniform scaling preserves circles and joinery');assert.ok(r.w<=w+1e-10&&r.h<=h+1e-10);assert.ok(r.x>=0&&r.y>=0);if(!mount)assert.equal(r.y+r.h,h);
+  }
+  assert.equal(F.catalog.lampCabinet.completedFlag,'lampFound');assert.equal(F.catalog.lampCabinet.completedSprite,1);
+});

@@ -2,25 +2,25 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.KiriFurniture=api;})(globalThis,function(){
   'use strict';
   const catalog={
-    lampCabinet:{atlas:'exploration',sprite:0,w:2,d:1,h:2,clearedBy:'lampFound',focus:[.72,.28]},
+    lampCabinet:{atlas:'gridInterior',sprite:0,w:2,d:1,h:2,completedFlag:'lampFound',completedSprite:1,focus:[.72,.22]},
     dutyDesk:{atlas:'prefab',sprite:2,w:2,d:1,h:1,focus:[.5,.3]},
     parcelShelf:{atlas:'prefab',sprite:9,w:2,d:1,h:1,completedFlag:'parcelTaken',completedSprite:10,focus:[.5,.4]},
     maintenanceBench:{atlas:'prefab',sprite:4,w:2,d:1,h:1,focus:[.5,.35]},
     serviceCounter:{atlas:'prefab',sprite:3,w:3,d:1,h:1},
     waitingBench:{atlas:'prefab',sprite:0,w:3,d:1,h:1},
     sideBench:{atlas:'prefab',sprite:1,w:1,d:3,h:3,facing:'west'},
-    ticketCubby:{atlas:'interior',sprite:2,w:1,d:1,h:2},
-    luggage:{atlas:'interior',sprite:3,w:1,d:1,h:1},
-    wallClock:{atlas:'world',sprite:6,w:1,d:0,h:1,mount:'back-wall',fit:'contain'},
-    wallLamp:{atlas:'interior',sprite:7,w:1,d:0,h:1,mount:'back-wall',fit:'contain'},
+    ticketCubby:{atlas:'gridInterior',sprite:2,w:1,d:1,h:2},
+    luggage:{atlas:'gridInterior',sprite:3,w:1,d:1,h:1},
+    wallClock:{atlas:'gridInterior',sprite:4,w:1,d:0,h:1,mount:'back-wall'},
+    wallLamp:{atlas:'gridInterior',sprite:5,w:1,d:0,h:1,mount:'back-wall'},
     repairTable:{atlas:'prefab',sprite:5,w:2,d:2,h:2,completedFlag:'helpedNagi',completedSprite:6,focus:[.5,.3]},
     pasteTable:{atlas:'prefab',sprite:7,w:2,d:2,h:2,focus:[.35,.45]},
     notesTable:{atlas:'prefab',sprite:8,w:2,d:1,h:1,focus:[.5,.5]},
-    paperShelf:{atlas:'interior',sprite:4,w:2,d:1,h:2},
-    dryingRack:{atlas:'interior',sprite:5,w:3,d:1,h:2},
+    paperShelf:{atlas:'gridInterior',sprite:6,w:2,d:1,h:2},
+    dryingRack:{atlas:'gridInterior',sprite:7,w:3,d:1,h:2},
     stool:{atlas:'prefab',sprite:11,w:1,d:1,h:1},
-    stockBasket:{atlas:'interior',sprite:8,w:1,d:1,h:1},
-    sideShelf:{atlas:'compact',sprite:6,w:1,d:2,h:2,facing:'west'},
+    stockBasket:{atlas:'gridInterior',sprite:8,w:1,d:1,h:1},
+    sideShelf:{atlas:'gridInterior',sprite:9,w:1,d:2,h:2,facing:'west'},
     wardrobe:{atlas:'decor',sprite:0,w:2,d:1,h:2},
     lowCupboard:{atlas:'decor',sprite:1,w:2,d:1,h:1},
     screen:{atlas:'decor',sprite:2,w:2,d:1,h:2},
@@ -49,5 +49,10 @@
     const prop={...def,id,kind,grid,x:x+Math.floor(def.w/2),y:y+(def.mount?def.h-1:def.d-1)};
     map.props.push(prop);return prop;
   }
-  return {catalog,place};
+  // One scale for both axes; floor objects rest on their cell baseline.
+  function fitArt(width,height,sourceWidth,sourceHeight,mount=false){
+    const scale=Math.min(width/sourceWidth,height/sourceHeight),w=sourceWidth*scale,h=sourceHeight*scale;
+    return {x:(width-w)/2,y:mount?(height-h)/2:height-h,w,h};
+  }
+  return {catalog,place,fitArt};
 });
