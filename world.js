@@ -90,6 +90,37 @@
     const sw=stationKit.naturalWidth/2,sh=stationKit.naturalHeight/2;
     map.platformEdges.forEach(edge=>{for(let x=edge.x;x<edge.x+edge.width;x++)pen.drawImage(stationKit,3,sh+3,sw-6,sh-6,x*size-originX,edge.y*size-originY,size,size);});
   }
+  // Roofs have their own silhouette; collision remains the wall footprint.
+  // All bitmap surfaces reuse the original image_gen tileset.
+  function drawBuildings(pen,map,size,originX=0,originY=0){
+    map.buildings.forEach(b=>{
+      const x=b.x*size-originX,y=b.y*size-originY,w=b.width*size;
+      const top=y+size*.1,bottom=(b.eaveY)*size-originY,lip=size*.4;
+      const polygon=()=>{pen.beginPath();pen.moveTo(x+size*.25,top);pen.lineTo(x+w-size*.25,top);pen.lineTo(x+w+lip,bottom);pen.lineTo(x-lip,bottom);pen.closePath();};
+      // Narrow cast shadow and finished wall corners beneath the projecting roof.
+      pen.fillStyle='rgba(5,12,19,.28)';pen.fillRect(x+w,bottom-size*.1,size*.13,(b.frontY-b.eaveY)*size+size*.18);
+      for(const edge of [x,x+w-size*.09]){
+        pen.fillStyle='#1c2021';pen.fillRect(edge,bottom,size*.09,(b.frontY-b.eaveY)*size);
+        pen.fillStyle='#66513a';pen.fillRect(edge+size*.025,bottom,Math.max(1,size*.025),(b.frontY-b.eaveY)*size);
+      }
+      pen.save();polygon();pen.clip();
+      for(let row=0;row<b.roofRows;row++)for(let col=-1;col<=b.width;col++)texture(pen,b.roof,x+col*size,y+row*size,size,'object');
+      // Slight shading at the side returns gives the tiled plane a definite edge.
+      const shade=pen.createLinearGradient(x-lip,0,x+w+lip,0);shade.addColorStop(0,'rgba(6,14,23,.45)');shade.addColorStop(.06,'rgba(6,14,23,0)');shade.addColorStop(.94,'rgba(6,14,23,0)');shade.addColorStop(1,'rgba(6,14,23,.45)');pen.fillStyle=shade;pen.fillRect(x-lip,y,w+lip*2,b.roofRows*size);
+      pen.restore();
+      // Dark bargeboards wrap both diagonal sides; the ridge ends are capped.
+      pen.lineJoin='round';pen.strokeStyle='#1b2228';pen.lineWidth=Math.max(2,size*.075);polygon();pen.stroke();
+      pen.strokeStyle=b.roof===18?'#a26c58':'#647b88';pen.lineWidth=Math.max(1,size*.025);
+      pen.beginPath();pen.moveTo(x-lip+2,bottom-2);pen.lineTo(x+size*.25,top+2);pen.lineTo(x+w-size*.25,top+2);pen.lineTo(x+w+lip-2,bottom-2);pen.stroke();
+      // Sample only the tiled fascia, excluding the wall baked into atlas cells 26/27.
+      const sw=image.naturalWidth/8,sh=image.naturalHeight/8,id=b.roof===18?26:27;
+      const left=x-lip,right=x+w+lip;
+      pen.save();pen.beginPath();pen.rect(left,bottom-size*.16,right-left,size*.32);pen.clip();
+      for(let px=left;px<right;px+=size)pen.drawImage(image,id%8*sw+2,Math.floor(id/8)*sh+sh*.23,sw-4,sh*.32,px,bottom-size*.16,size,size*.32);
+      pen.restore();
+      pen.fillStyle='#20232a';pen.fillRect(left,bottom+size*.14,right-left,Math.max(1,size*.045));
+    });
+  }
   function drawScenery(map,solved) {
     if(sceneryZone!==map.id) {
       sceneryZone=map.id; scenery.replaceChildren();
@@ -141,7 +172,8 @@
       for (let x = Math.max(0, Math.floor(view.x)); x < Math.min(map.w, Math.ceil(view.x + cols)); x++) {
         const id = map.tiles[y * map.w + x];
         const px=x*view.tile-originX,py=y*view.tile-originY;
-        texture(ctx,id,px,py,view.tile,map.materials[y*map.w+x],originX,originY);
+        const roofCell=map.buildings.some(b=>x>=b.x&&x<b.x+b.width&&y>=b.y&&y<b.eaveY);
+        texture(ctx,roofCell?map.floor:id,px,py,view.tile,roofCell?'grass':map.materials[y*map.w+x],originX,originY);
         blendEdge(map,x,y,px,py);
         fineWear(map,x,y,px,py);
         if(map.materials[y*map.w+x]!=='object'&&y>0&&[17,21,22,25,28].includes(map.tiles[(y-1)*map.w+x])) {
@@ -151,6 +183,7 @@
         if (id === 6 || id === 7) { ctx.fillStyle = `rgba(102,183,206,${.04 + Math.sin(time * .0015 + x * .7 + y * .3) * .035})`; ctx.fillRect(px, py, view.tile, view.tile); }
       }
     }
+    drawBuildings(ctx,map,view.tile,originX,originY);
     drawPlatform(ctx,map,view.tile,originX,originY);
     ctx.fillStyle = phase === 'echo' ? 'rgba(59,84,123,.19)' : 'rgba(5,22,38,.22)'; ctx.fillRect(0, 0, view.width, view.height);
     map.lights.forEach(({x,y})=>{
@@ -167,7 +200,8 @@
     output.width = map.w * size; output.height = map.h * size;
     const pen = output.getContext('2d'); pen.imageSmoothingEnabled = false;
     if (!image.complete || !image.naturalWidth) return;
-    map.tiles.forEach((tile, i) => texture(pen,tile,i%map.w*size,Math.floor(i/map.w)*size,size,map.materials[i]));
+    map.tiles.forEach((tile, i) => {const x=i%map.w,y=Math.floor(i/map.w),roofCell=map.buildings.some(b=>x>=b.x&&x<b.x+b.width&&y>=b.y&&y<b.eaveY);texture(pen,roofCell?map.floor:tile,x*size,y*size,size,roofCell?'grass':map.materials[i]);});
+    drawBuildings(pen,map,size);
     drawPlatform(pen,map,size);
     if(foliage.complete&&foliage.naturalWidth) {
       const sw=foliage.naturalWidth/4,sh=foliage.naturalHeight/4;

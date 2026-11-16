@@ -17,7 +17,7 @@
     };
     map.border = tile => { map.rect(0, 0, w, 1, tile, true); map.rect(0, h - 1, w, 1, tile, true); map.rect(0, 0, 1, h, tile, true); map.rect(w - 1, 0, 1, h, tile, true); };
     map.house = (x, y, width, height, roof = 19, id=`house-${x}-${y}`) => {
-      const roofRows=Math.min(3,height-2),building={id,x,y,width,height,eaveY:y+roofRows,frontY:y+height,door:{x:x+Math.floor(width/2),y:y+height-1}};
+      const roofRows=Math.min(3,height-2),building={id,x,y,width,height,roof,roofRows,eaveY:y+roofRows,frontY:y+height,door:{x:x+Math.floor(width/2),y:y+height-1}};
       map.rect(x,y,width,1,roof===18?26:27,true);map.rect(x,y+1,width,roofRows-1,roof,true);
       map.rect(x,y+roofRows,width,height-roofRows,17,true);map.put(x+1,y+height-2,29,true);map.put(x+width-2,y+height-2,29,true);
       map.put(building.door.x,building.door.y,30,true);map.buildings.push(building);return building;
