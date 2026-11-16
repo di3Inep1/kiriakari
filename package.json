@@ -1,0 +1,12 @@
+{
+  "name": "kiriakari-the-thirteenth-bell",
+  "version": "1.0.0",
+  "private": true,
+  "description": "雾灯町：第十三次钟声 — 原创日式解谜 RPG",
+  "scripts": {
+    "start": "node server.cjs",
+    "test": "node --test tests/core.test.cjs"
+  },
+  "engines": { "node": ">=18" },
+  "license": "UNLICENSED"
+}

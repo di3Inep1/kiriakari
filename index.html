@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#101c22">
+  <meta name="description" content="一封迟到七年的信，一座停在祭典前夜的小镇。原创日式解谜 RPG，双世界探索与四种结局。">
+  <title>雾灯町：第十三次钟声</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23101c22'/%3E%3Cpath d='M26 9h12v7H26zm-6 11h24v29H20zM26 53h12' stroke='%23d6b780' stroke-width='3' fill='none'/%3E%3Cpath d='M32 22v25' stroke='%23d6b780' stroke-width='2'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+  <script defer src="maps.js"></script>
+  <script defer src="core.js"></script>
+  <script defer src="data.js"></script>
+  <script defer src="world.js"></script>
+  <script defer src="audio.js"></script>
+  <script defer src="game.js"></script>
+</head>
+<body>
+  <main id="title-screen" class="title-screen">
+    <div class="title-art" aria-hidden="true"></div><div class="title-shade" aria-hidden="true"></div>
+    <div class="title-grain" aria-hidden="true"></div>
+    <header class="title-header"><a class="wordmark" href="#" aria-label="雾灯町首页"><span class="lantern-logo" aria-hidden="true"></span> 雾灯町 <span class="brand-divider"></span><small>KIRIAKARI</small></a><span class="edition"><i></i> 原创叙事解谜 RPG</span></header>
+    <div class="title-content">
+      <p class="eyebrow"><span></span> 一场关于记得与告别的旅程</p>
+      <h1>雾灯町<span class="title-sub">第十三次钟声</span></h1>
+      <p class="title-en">THE THIRTEENTH BELL</p>
+      <p class="title-description">一封迟到七年的信，<br>带你回到那个从未天亮的夏夜。<br><span>如果记住一个人，能让她再次回来呢？</span></p>
+      <div class="title-actions"><button id="new-game" class="button primary"><span>踏入雾中</span><span aria-hidden="true">⟶</span></button><button id="continue-game" class="button quiet" disabled>继续旅程 <span aria-hidden="true">↗</span></button></div>
+      <p class="save-note" id="save-note">故事会自动记录，请放心前行。</p>
+    </div>
+    <footer class="title-footer"><div class="title-features"><span>六处旧地</span><b>·</b><span>两重时空</span><b>·</b><span>四种结局</span></div><div class="title-footer-actions"><button id="gallery-title" class="text-button">结局之书 <span id="gallery-count">0 / 4</span></button><button id="help-title" class="text-button">游玩指南 ↗</button></div></footer>
+    <div class="title-caption" aria-hidden="true"><span>雾灯车站</span><small>JULY 16 · 23:59</small></div>
+  </main>
+
+  <main id="game-screen" class="game-screen" hidden>
+    <header class="game-header"><button id="home-button" class="wordmark"><span class="lantern-logo" aria-hidden="true"></span> 雾灯町 <small>第十三次钟声</small></button><nav aria-label="游戏菜单"><button id="map-button" class="nav-button"><span aria-hidden="true">⌘</span> 地图 <kbd>M</kbd></button><button id="journal-button" class="nav-button"><span aria-hidden="true">▤</span> 手记 <kbd>J</kbd><span id="journal-dot" class="notification-dot" hidden></span></button><button id="settings-button" class="nav-button" aria-label="设置和操作指南">设置 <span aria-hidden="true">⚙</span></button></nav></header>
+    <div class="game-layout">
+      <div class="chapter-bar"><div><span id="chapter-label" class="eyebrow">序章 · 一封迟来的信</span><span class="chapter-divider"></span><span id="chapter-sub">THE LAST SUMMER NIGHT</span></div><span class="clock-label"><i></i> 23:59 <small>时间停止流动</small></span></div>
+      <section id="world" class="world" aria-label="游戏场景。使用方向键或 WASD 移动，E 调查，Q 切换回忆，也可以点击场景。" tabindex="0">
+        <div id="world-background" class="world-background"></div><canvas id="tile-map" aria-hidden="true"></canvas><div class="world-vignette"></div><div class="echo-wash"></div>
+        <canvas id="atmosphere" aria-hidden="true"></canvas>
+        <div class="scene-label"><span class="scene-dash"></span><div><h2 id="zone-name">雾灯车站</h2><span id="zone-reading">KIRIAKARI STATION</span></div></div>
+        <button id="phase-button" class="phase-button" title="切换现世 / 回忆（Q）" disabled><span class="phase-icon" aria-hidden="true">◐</span><span><b id="phase-name">现世</b><small id="phase-sub">先寻找一盏灯</small></span><kbd>Q</kbd></button>
+        <div id="objects"></div>
+        <div id="player" class="actor player" aria-label="澪"><div class="actor-shadow"></div><div class="sprite"></div><span class="player-lantern" aria-hidden="true"></span></div>
+        <div id="click-target" class="click-target" hidden></div>
+        <div class="scene-bottom"><span id="zone-sub">末班车停在昨日。</span><span id="nearby-hint" class="nearby-hint"><kbd>E</kbd> 调查</span></div>
+        <div id="chapter-splash" class="chapter-splash" hidden><span id="splash-en"></span><h2 id="splash-title"></h2><p id="splash-sub"></p></div>
+        <div id="transition" class="transition" aria-hidden="true"></div>
+      </section>
+      <div class="journey-bar"><div class="objective"><span class="objective-symbol" aria-hidden="true">◇</span><div><span class="micro-label">此刻的牵挂</span><p id="objective-text"></p></div></div><button id="memory-button" class="memory-counter" aria-label="查看回忆手记"><span class="memory-dots" id="memory-dots"></span><span>回忆 <b id="memory-count">0</b><small> / 4</small></span></button></div>
+      <footer class="game-footer"><span id="save-status"><i></i> 旅途已记录</span><div class="keyboard-help"><span><kbd>W A S D</kbd> 移动</span><span><kbd>E</kbd> 调查</span><span><kbd>Q</kbd> 回忆</span><span>点击场景也可移动</span></div><button id="sound-button" class="text-button" aria-label="开启环境音乐" aria-pressed="false">♫ <span>声音关闭</span></button></footer>
+    </div>
+    <div class="touch-controls" id="touch-controls"><div class="dpad" aria-label="方向控制"><button data-move="up" aria-label="向上移动">↑</button><button data-move="left" aria-label="向左移动">←</button><button data-move="down" aria-label="向下移动">↓</button><button data-move="right" aria-label="向右移动">→</button></div><button id="touch-interact" class="touch-interact">调查 <span>E</span></button></div>
+  </main>
+
+  <section id="dialogue" class="dialogue" role="dialog" aria-modal="true" aria-label="剧情对话" hidden>
+    <div class="dialogue-card"><div id="dialogue-portrait" class="portrait" aria-hidden="true"></div><div class="dialogue-body"><div class="dialogue-heading"><span id="speaker-name"></span><span id="speaker-detail"></span><button id="dialogue-skip" class="text-button">显示全文</button></div><p id="dialogue-text"></p><div id="dialogue-choices" class="dialogue-choices"></div><button id="dialogue-next" class="dialogue-next">继续 <span>↵</span></button></div></div>
+  </section>
+
+  <div id="modal" class="modal" hidden><section id="modal-card" class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><header class="modal-header"><div><p id="modal-eyebrow" class="eyebrow"></p><h2 id="modal-title"></h2></div><button id="modal-close" class="icon-button" aria-label="关闭窗口">×</button></header><div id="modal-body" class="modal-body"></div></section></div>
+  <section id="ending-screen" class="ending-screen" hidden><div class="ending-art"></div><div class="ending-shade"></div><div class="ending-content"><p id="ending-number" class="eyebrow"></p><h1 id="ending-name"></h1><p id="ending-en" class="ending-en"></p><p id="ending-lead" class="ending-lead"></p><div id="ending-story" class="ending-story"></div><p id="ending-after" class="ending-after"></p><div class="ending-actions"><button id="ending-rewind" class="button primary">回到最后的选择 ⟶</button><button id="ending-home" class="button quiet">返回标题</button></div><p class="ending-save-note">结局已收录。可返回桥畔继续探索，寻找其他结局。</p></div></section>
+  <div id="toast-region" class="toast-region" role="status" aria-live="polite" aria-atomic="true"></div>
+  <noscript><p class="noscript">请在浏览器中启用 JavaScript 以游玩《雾灯町》。</p></noscript>
+</body>
+</html>
