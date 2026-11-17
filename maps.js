@@ -58,7 +58,8 @@
   m.rect(13, 8, 3, 15, 2); m.house(8, 3, 12, 6, 18); m.put(14, 8, 31);
   m.rect(10, 10, 8, 1, 56, true); m.put(13, 10, 2); m.put(14, 10, 2);
   [[9, 13], [18, 13], [9, 18], [18, 18]].forEach(([x, y]) => m.put(x, y, 40, true));
-  m.put(14, 13, 60, true); m.put(6, 12, 43, true); m.put(19, 15, 10, true);
+  furniture.place(m,'shrine-altar','shrineAltar',13,13);
+  m.put(6, 12, 43, true); m.put(19, 15, 10, true);
   [[3, 4], [22, 4], [2, 14], [24, 14], [4, 21], [23, 21]].forEach(([x, y]) => m.put(x, y, 33, true));
   m = create('archive', 26, 22, 4, [13, 18]); m.border(15); m.rect(1, 1, 24, 2, 17, true); m.rect(2, 3, 22, 1, 21, true);
   m.rect(2, 4, 2, 14, 21, true); m.rect(22, 7, 2, 11, 21, true); m.rect(9, 7, 3, 2, 21, true); m.rect(14, 11, 3, 2, 21, true);

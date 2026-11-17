@@ -27,7 +27,7 @@
       ] },
     shrine: { name: '月见神社', reading: 'TSUKIMI SHRINE', sub: '月落之时，归舟将至。', atlas: [0, 1], spawn: [50, 79], links: ['town'],
       objects: [
-        { id: 'lanterns', name: '四方灯阵', x: 51, y: 46, action: 'puzzle-shrine', mark: 'puzzle' },
+        { id: 'lanterns', name: '归舟祭灯台', x: 51, y: 46, support:'shrine-altar', action: 'puzzle-shrine', mark: 'puzzle' },
         { id: 'mural', name: '被雨洗去的绘马', x: 24, y: 55, action: 'lanternOrder', mark: 'inspect' },
         { id: 'shrine-shiori', name: '栞的身影', label: '回声', x: 69, y: 60, phase: 'echo', character: 1, action: 'shrine-shiori' },
         { id: 'to-town', name: '返回灯见街', x: 50, y: 84, action: 'go-town', mark: 'exit' }

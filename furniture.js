@@ -32,7 +32,8 @@
     shojiWindow:{atlas:'decor',sprite:8,w:2,d:0,h:2,mount:'back-wall',focus:[.5,.6]},
     narrowWindow:{atlas:'decor',sprite:9,w:1,d:0,h:2,mount:'back-wall'},
     umbrellaStand:{atlas:'decor',sprite:10,w:1,d:1,h:2},
-    coatRack:{atlas:'decor',sprite:11,w:2,d:0,h:1,mount:'back-wall'}
+    coatRack:{atlas:'decor',sprite:11,w:2,d:0,h:1,mount:'back-wall'},
+    shrineAltar:{atlas:'shrineAltar',sprite:0,w:3,d:1,h:1,completedPuzzle:'shrine',completedSprite:1,focus:[.5,.42]}
   };
   function place(map,id,kind,x,y){
     const def=catalog[kind];if(!def)throw new Error('Unknown furniture: '+kind);

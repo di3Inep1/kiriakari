@@ -87,6 +87,13 @@ test('named portable items are attached to matching furniture, not dropped on th
   assert.equal(M.maps.archive.tiles.includes(50),false);assert.equal(M.maps.archive.tiles.includes(51),false);
   for(const tile of [40,41,43,45,46,48,49,53]) for(const map of Object.values(M.maps)) assert.equal(map.tiles.includes(tile),false);
 });
+test('shrine altar has three solid, investigable cells and safely restores old floor saves',()=>{
+  const object={x:14,y:13,support:'shrine-altar'},cells=M.interactionCells('shrine',object);
+  assert.deepEqual(cells,[{x:13,y:13},{x:14,y:13},{x:15,y:13}]);
+  for(const cell of cells){assert.equal(M.walkable('shrine',cell.x,cell.y),false);assert.equal(M.canInvestigate('shrine',{x:cell.x,y:14,facing:3},object),true);}
+  const saved=C.newGame();saved.flags.lantern=true;saved.solved=['station'];saved.zone='shrine';saved.player={x:13,y:13,facing:0};
+  const restored=C.restore(saved);assert.equal(M.walkable('shrine',restored.player.x,restored.player.y),true);assert.deepEqual(restored.solved,['station']);
+});
 test('station exit is physically gated and opens only after the station puzzle',()=>{
   const map=M.maps.station,from={x:map.spawn[0],y:map.spawn[1]},exit=map.anchors['to-town'];
   assert.equal(M.findPath('station',from,{x:exit[0],y:exit[1]}).length,0);

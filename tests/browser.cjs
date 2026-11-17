@@ -149,6 +149,17 @@ async function main() {
       await send('Page.navigate',{url:base});await waitFor('!!window.KiriExploration');
       await evaluate(`(()=>{const s=KiriCore.newGame();KiriCore.setFlag(s,'lantern');const answers={station:[0,7,1,6],shrine:['moon','mountain','river','boat'],archive:['letter','lantern','gate','bell']};for(const id of ${JSON.stringify(zone==='shrine'?['station']:zone==='archive'?['station','shrine']:['station','shrine','archive'])})KiriCore.solvePuzzle(s,id,answers[id]);s.zone=${JSON.stringify(zone)};s.player={x:KiriMaps.maps[s.zone].spawn[0],y:KiriMaps.maps[s.zone].spawn[1],facing:3};localStorage.setItem('kiriakari.save.v1',JSON.stringify(s));})()`);
       await send('Page.reload');await waitFor("!!window.KiriExploration && !document.getElementById('continue-game').disabled");await click('#continue-game');await waitFor(`document.getElementById('world').dataset.zone===${JSON.stringify(zone)}`);await waitFor('KiriRenderer.assetsReady()');await pause(700);await screenshot('preview-'+zone+'-floor.png');
+      if(zone==='shrine'){
+        const before=await evaluate("document.querySelector('[data-prop=shrine-altar]').toDataURL()");
+        await object('lanterns',false);
+        for(const symbol of ['moon','mountain','river','boat'])await click(`[data-lantern="${symbol}"]`);
+        await click('#puzzle-check');await drain();assert.ok((await saved()).solved.includes('shrine'));await pause(700);
+        assert.notEqual(await evaluate("document.querySelector('[data-prop=shrine-altar]').toDataURL()"),before,'Solved altar switches to its native illuminated frame');
+        await screenshot('preview-shrine-altar.png');
+        await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await waitFor('KiriRenderer.view.tile===32');await pause(350);
+        assert.equal(await evaluate("(()=>{const c=document.querySelector('[data-prop=shrine-altar]');return c.width===96&&c.height===32&&parseFloat(c.style.width)===96;})()"),true);
+        await screenshot('preview-shrine-mobile.png');await send('Emulation.setDeviceMetricsOverride',{width:1440,height:960,deviceScaleFactor:1,mobile:false});
+      }
     }
     assert.deepEqual(errors,[]);console.log('Shrine, archive and tower floor previews passed');await send('Browser.close');return;
   }
