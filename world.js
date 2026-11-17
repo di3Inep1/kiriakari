@@ -13,7 +13,7 @@
   const nativeFurniture={};for(const size of [32,48]){const sheet=new Image();sheet.src='assets/interior-native-'+size+'.png?v=shrine-20261117';nativeFurniture[size]=sheet;}
   const nativeItems={};for(const size of [12,16]){const sheet=new Image();sheet.src='assets/item-icons-'+size+'.png';nativeItems[size]=sheet;}
   const floorGrains=new Image();floorGrains.src='assets/shrine-library-materials.png';
-  const shrinePaving={};for(const size of [32,48]){const sheet=new Image();sheet.src='assets/shrine-paving-native-'+size+'.png';shrinePaving[size]=sheet;}
+  const shrinePaving={},shrineFringe={};for(const size of [32,48]){const sheet=new Image();sheet.src='assets/shrine-paving-v2-native-'+size+'.png';shrinePaving[size]=sheet;const edge=new Image();edge.src='assets/shrine-fringe-native-'+size+'.png';shrineFringe[size]=edge;}
   const woodGrain=new Image();woodGrain.src='assets/interior-wood-grain.png';
   const tatamiImage=new Image();tatamiImage.src='assets/tatami-mat.png';let tatamiBounds=null;
   const view = { tile: 48, x: 0, y: 0, width: 1, height: 1, zone: 'station' };
@@ -103,7 +103,7 @@
     if(material==='shrine-stone'&&shrinePaving[view.tile].naturalWidth){
       let patterns=contextPatterns.get(pen);if(!patterns){patterns=new Map();contextPatterns.set(pen,patterns);}
       const key='shrine-paving:'+size+':'+view.tile,source=shrinePaving[view.tile];
-      if(!patterns.has(key)){if(size===view.tile)patterns.set(key,pen.createPattern(source,'repeat'));else{const small=document.createElement('canvas');small.width=small.height=size*8;const p=small.getContext('2d');p.imageSmoothingEnabled=false;p.drawImage(source,0,0,small.width,small.height);patterns.set(key,pen.createPattern(small,'repeat'));}}
+      if(!patterns.has(key)){if(size===view.tile)patterns.set(key,pen.createPattern(source,'repeat'));else{const small=document.createElement('canvas');small.width=small.height=size*6;const p=small.getContext('2d');p.imageSmoothingEnabled=false;p.drawImage(source,0,0,small.width,small.height);patterns.set(key,pen.createPattern(small,'repeat'));}}
       const pattern=patterns.get(key);pattern.setTransform(new DOMMatrix().translate(-originX,-originY));pen.fillStyle=pattern;pen.fillRect(x,y,size,size);return;
     }
     if(material==='shrine-stone'||material==='library-wood'||material==='tower-stone'){
@@ -133,6 +133,7 @@
     pen.drawImage(source,(id%columns)*sw+inset,Math.floor(id/columns)*sh+inset,sw-inset*2,sh-inset*2,x,y,size,size);
   }
   function blendEdge(map,x,y,px,py) {
+    if(map.id==='shrine')return; // The shrine uses a continuous two-sided moss fringe below.
     const index=y*map.w+x, material=map.materials[index], size=view.tile;
     if(material!=='stone'&&material!=='dirt') return;
     [[0,-1], [1,0], [0,1], [-1,0]].forEach(([dx,dy], side)=>{
@@ -145,6 +146,20 @@
       ctx.closePath();ctx.clip();ctx.translate(size/2,size/2);ctx.rotate(-side*Math.PI/2);ctx.translate(-size/2,-size/2);
       texture(ctx,map.tiles[i],0,0,size,'grass');ctx.restore();
     });
+  }
+  function drawShrineEdges(pen,map,size,originX=0,originY=0){
+    const source=shrineFringe[view.tile];if(map.id!=='shrine'||!source.naturalWidth)return;
+    // Draw after every ground cell: the fringe spans both sides of the boundary.
+    // Its source position follows world coordinates, including opposite-facing edges.
+    for(let y=0;y<map.h;y++)for(let x=0;x<map.w;x++){
+      if(map.materials[y*map.w+x]!=='stone')continue;
+      [[0,-1],[1,0],[0,1],[-1,0]].forEach(([dx,dy],side)=>{
+        const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=map.w||ny>=map.h||map.materials[ny*map.w+nx]!=='grass')return;
+        const along=[x,y,-x-1,-y-1][side],frame=((along%6)+6)%6;
+        pen.save();pen.translate((x+.5)*size-originX,(y+.5)*size-originY);pen.rotate(side*Math.PI/2);
+        pen.drawImage(source,frame*view.tile,0,view.tile,view.tile*2,-size/2,-size*1.5,size,size*2);pen.restore();
+      });
+    }
   }
   function fineWear(map,x,y,px,py) {
     const material=map.materials[y*map.w+x],r=root.KiriScenery.hash(x,y,91);
@@ -301,7 +316,7 @@
         if (id === 6 || id === 7) { ctx.fillStyle = `rgba(102,183,206,${.04 + Math.sin(time * .0015 + x * .7 + y * .3) * .035})`; ctx.fillRect(px, py, view.tile, view.tile); }
       }
     }
-    drawTatami(ctx,map,view.tile,originX,originY);drawPlatform(ctx,map,view.tile,originX,originY);
+    drawShrineEdges(ctx,map,view.tile,originX,originY);drawTatami(ctx,map,view.tile,originX,originY);drawPlatform(ctx,map,view.tile,originX,originY);
     ctx.fillStyle = phase === 'echo' ? 'rgba(226,210,174,.07)' : 'rgba(5,22,38,.22)'; ctx.fillRect(0, 0, view.width, view.height);
     map.lights.forEach(({x,y})=>{
       const p = project({ x, y: y - .35 }), radius = view.tile * 1.7;
@@ -318,7 +333,7 @@
     const pen = output.getContext('2d'); pen.imageSmoothingEnabled = false;
     if (!image.complete || !image.naturalWidth) return;
     map.tiles.forEach((tile, i) => {const x=i%map.w,y=Math.floor(i/map.w),building=buildingAt(map,x,y);texture(pen,building?map.floor:tile,x*size,y*size,size,building?'grass':groundMaterial(map,i));});
-    drawTatami(pen,map,size);drawPlatform(pen,map,size);
+    drawShrineEdges(pen,map,size);drawTatami(pen,map,size);drawPlatform(pen,map,size);
     const layers=map.buildings.map(b=>({z:depth(b.frontY-.92),draw:()=>paintBuilding(pen,map,b,size,0,0)}));
     if(foliage.complete&&foliage.naturalWidth) {
       const sw=foliage.naturalWidth/4,sh=foliage.naturalHeight/4;
@@ -330,5 +345,5 @@
     map.props.filter(p=>root.KiriCore.inPhase(progress,p.phase)).forEach(p=>{const pose=root.KiriMaps.attachmentPose(zone,p),g=p.grid;layers.push({z:pose?depth(pose.building.frontY-.92,1):depth(root.KiriMaps.propGroundY(zone,p),p.surfaceOn?1:g?0:-1),draw:()=>{const frame=propFrame(p,solved,progress),{source,columns,rows,sprite}=frame;if(!source.complete||!source.naturalWidth)return;if(g){drawGridFrame(pen,frame,g.x*size,g.top*size,g.w*size,g.h*size);return;}if(frame.nativeItem){const extent=p.size*size,surface=root.KiriMaps.surfacePose(zone,p),x=(surface?surface.x+.5:p.x+.5)*size,y=(surface?surface.y+.92:p.y+.92)*size;drawGridFrame(pen,frame,x-extent/2,y-(surface?extent/2:extent),extent,extent);return;}const sw=source.naturalWidth/columns,sh=source.naturalHeight/rows,extent=p.size*size,x=pose?pose.x:p.x+.5,y=pose?pose.bottomY:p.y+.92;pen.drawImage(source,sprite%columns*sw+4,Math.floor(sprite/columns)*sh+4,sw-8,sh-8,x*size-extent*.5,y*size-extent*.985,extent,extent);}});});
     layers.sort((a,b)=>a.z-b.z).forEach(layer=>layer.draw());
   }
-  root.KiriRenderer = { view, resize, draw, project, unproject, thumbnail, depth, assetsReady:()=>[image,foliage,mountedImage,worldProps,stoneGrain,stationKit,craneImage,explorationImage,explorationCleared,...Object.values(nativeFurniture),...Object.values(nativeItems),...Object.values(shrinePaving),floorGrains,woodGrain,tatamiImage].every(i=>i.complete&&i.naturalWidth>0)&&!!root.KiriLighting?.assetsReady() };
+  root.KiriRenderer = { view, resize, draw, project, unproject, thumbnail, depth, assetsReady:()=>[image,foliage,mountedImage,worldProps,stoneGrain,stationKit,craneImage,explorationImage,explorationCleared,...Object.values(nativeFurniture),...Object.values(nativeItems),...Object.values(shrinePaving),...Object.values(shrineFringe),floorGrains,woodGrain,tatamiImage].every(i=>i.complete&&i.naturalWidth>0)&&!!root.KiriLighting?.assetsReady() };
 })(globalThis);

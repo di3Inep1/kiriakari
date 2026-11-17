@@ -150,6 +150,9 @@ async function main() {
       await evaluate(`(()=>{const s=KiriCore.newGame();KiriCore.setFlag(s,'lantern');const answers={station:[0,7,1,6],shrine:['moon','mountain','river','boat'],archive:['letter','lantern','gate','bell']};for(const id of ${JSON.stringify(zone==='shrine'?['station']:zone==='archive'?['station','shrine']:['station','shrine','archive'])})KiriCore.solvePuzzle(s,id,answers[id]);s.zone=${JSON.stringify(zone)};s.player={x:KiriMaps.maps[s.zone].spawn[0],y:KiriMaps.maps[s.zone].spawn[1],facing:3};localStorage.setItem('kiriakari.save.v1',JSON.stringify(s));})()`);
       await send('Page.reload');await waitFor("!!window.KiriExploration && !document.getElementById('continue-game').disabled");await click('#continue-game');await waitFor(`document.getElementById('world').dataset.zone===${JSON.stringify(zone)}`);await waitFor('KiriRenderer.assetsReady()');await pause(700);await screenshot('preview-'+zone+'-floor.png');
       if(zone==='shrine'){
+        assert.equal(await evaluate(`(()=>{const s=JSON.parse(localStorage.getItem('kiriakari.save.v1')),r=KiriRenderer,c=document.getElementById('tile-map'),p=c.getContext('2d'),ratio=c.width/r.view.width;
+          const sample=(x,y,playerY)=>{r.draw('shrine',{x:14,y:playerY},0,s.phase,s.solved,s);return [...p.getImageData(Math.round((x-r.view.x)*r.view.tile*ratio)-8,Math.round((y-r.view.y)*r.view.tile*ratio)-8,16,16).data].join(',');};
+          const stable=[[8.5,10,12],[23,15.5,14],[8.5,22,16],[5,15.5,14]].every(([x,y,py])=>sample(x,y,py)===sample(x,y,py+1));r.draw('shrine',s.player,0,s.phase,s.solved,s);return stable;})()`),true,'All four moss borders stay fixed to the ground while the camera moves');
         const before=await evaluate("document.querySelector('[data-prop=shrine-altar]').toDataURL()");
         await object('lanterns',false);
         for(const symbol of ['moon','mountain','river','boat'])await click(`[data-lantern="${symbol}"]`);
