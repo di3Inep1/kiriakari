@@ -67,7 +67,13 @@ async function main() {
   const saved = () => evaluate(`JSON.parse(localStorage.getItem('kiriakari.save.v1'))`);
   const drain = async (choice = 0) => {
     for (let i = 0; i < 60; i++) {
-      if (await evaluate("document.getElementById('dialogue').hidden")) return;
+      if (await evaluate("document.getElementById('dialogue').hidden")) {
+        if(await evaluate("!document.getElementById('modal').hidden && !!document.getElementById('cg-continue')")){
+          await waitFor("document.querySelector('.cg-scene img').complete && document.querySelector('.cg-scene img').naturalWidth>0");await pause(650);
+          const title=await evaluate("document.getElementById('modal-title').textContent"),mobile=await evaluate('innerWidth<700');await screenshot(mobile?'preview-cg-mobile.png':title==='第一簇火'?'preview-cg-first-flame.png':'preview-cg-sisters.png');await click('#cg-continue');
+        }
+        return;
+      }
       if(mobileControlsOnly){await evaluate("document.getElementById('dialogue-skip').click()");const text=await evaluate("document.getElementById('dialogue-text').textContent");mobilePrompts.push(text);assert.equal(/按 Q|使用 WASD/.test(text),false,'Mobile dialogue names touch controls');}
       const count = await evaluate("document.querySelectorAll('#dialogue-choices button').length");
       if (count) await click(`#dialogue-choices button:nth-child(${choice + 1})`);
@@ -103,6 +109,38 @@ async function main() {
   await evaluate("Promise.all([...document.images].map(i=>i.decode().catch(()=>{})))"); await pause(700);
   await screenshot('preview-title.png');
   console.log('Title screenshot captured');
+  if(process.argv.includes('--memory-preview')){
+    for(const zone of ['station','town']){
+      await send('Page.navigate',{url:base});await waitFor('!!window.KiriExploration');
+      await evaluate(`(()=>{const s=KiriCore.newGame();KiriCore.setFlag(s,'lantern');if(${JSON.stringify(zone)}==='town')KiriCore.solvePuzzle(s,'station',[0,7,1,6]);s.zone=${JSON.stringify(zone)};const cell=s.zone==='station'?[5,10]:[KiriMaps.maps.town.anchors.crane[0],9];s.player={x:cell[0],y:cell[1],facing:3};localStorage.setItem('kiriakari.save.v1',JSON.stringify(s));})()`);
+      await send('Page.reload');await waitFor("!!window.KiriExploration && !document.getElementById('continue-game').disabled");await click('#continue-game');await waitFor('KiriRenderer.assetsReady()');await pause(300);
+      const prop=zone==='station'?'memory-photo':'eave-crane';assert.equal(await evaluate(`document.querySelector('[data-prop="${prop}"]').hidden`),true);await screenshot(zone==='station'?'preview-photo-present.png':'preview-crane-present.png');
+      await click('#phase-button');await pause(1100);assert.equal(await evaluate(`document.querySelector('[data-prop="${prop}"]').hidden`),false);
+      if(zone==='station')assert.equal(await evaluate("(()=>{const z=s=>+getComputedStyle(document.querySelector(s)).zIndex;return z('[data-prop=memory-photo]')>z('[data-prop=photo-bench]')&&z('#object-photo')>z('[data-prop=memory-photo]');})()"),true,'Photo and glint appear above the bench surface');
+      else assert.equal(await evaluate("document.querySelector('.roof-thread').hidden"),false);
+      await screenshot(zone==='station'?'preview-photo-memory.png':'preview-crane-memory.png');
+      if(zone==='station'){const clip=await evaluate("(()=>{const r=document.getElementById('world').getBoundingClientRect(),p=KiriRenderer.project({x:5,y:9});return {x:Math.max(r.left+6,r.left+p.x-260),y:Math.max(r.top+6,r.top+p.y-145),width:600,height:350,scale:1};})()");await screenshot('preview-photo-detail.png',clip);}
+    }
+    assert.deepEqual(errors,[]);console.log('Photo surface depth, glint, paper crane and thread are visible only in the lit memory phase');await send('Browser.close');return;
+  }
+  if(process.argv.includes('--bag-preview')){
+    await evaluate(`(()=>{const s=KiriCore.newGame();s.zone='station-office';KiriCore.explore(s,'take-lamp');KiriCore.explore(s,'take-parcel');s.zone='station';KiriCore.explore(s,'borrow-key');KiriCore.explore(s,'open-toolbox');s.zone='station-office';s.player={x:7,y:8,facing:3};localStorage.setItem('kiriakari.save.v1',JSON.stringify(s));})()`);
+    await send('Page.reload');await waitFor("!!window.KiriExploration && !document.getElementById('continue-game').disabled");await click('#continue-game');await send('Input.dispatchKeyEvent',{type:'keyDown',key:'b',code:'KeyB'});await send('Input.dispatchKeyEvent',{type:'keyUp',key:'b',code:'KeyB'});await waitFor("document.getElementById('modal-title').textContent==='澪的背包'");await click('[data-item="dryMatches"]');await pause(350);await screenshot('preview-backpack.png');
+    await send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
+    for(const width of [320,844,390]){await send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:true});await pause(350);assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);assert.equal(await evaluate("document.getElementById('modal-card').scrollWidth<=document.getElementById('modal-card').clientWidth"),true);if(width===390)await screenshot('preview-backpack-mobile.png');}
+    await tap('#bag-use');await drain();assert.equal((await saved()).flags.lantern,true);assert.equal(!!(await saved()).flags.shelteredFlame,false);
+    await click('#memory-button');assert.equal(await evaluate("!!document.querySelector('[data-cg=ignition]')"),true);await click('[data-cg="ignition"]');await waitFor("document.querySelector('.cg-scene img').complete");await pause(650);await screenshot('preview-cg-mobile.png');await click('#cg-continue');
+    await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await click('#memory-button');await click('[data-cg="ignition"]');assert.equal(await evaluate("getComputedStyle(document.querySelector('.cg-scene img')).animationName"),'none');await click('#cg-continue');
+    assert.deepEqual(errors,[]);console.log('Backpack native icons, 320/390/844px layout, actual mobile item use, direct indoor lighting, CG replay and reduced motion passed');await send('Browser.close');return;
+  }
+  if(process.argv.includes('--chapter-preview')){
+    for(const zone of ['shrine','archive','tower']){
+      await send('Page.navigate',{url:base});await waitFor('!!window.KiriExploration');
+      await evaluate(`(()=>{const s=KiriCore.newGame();KiriCore.setFlag(s,'lantern');const answers={station:[0,7,1,6],shrine:['moon','mountain','river','boat'],archive:['letter','lantern','gate','bell']};for(const id of ${JSON.stringify(zone==='shrine'?['station']:zone==='archive'?['station','shrine']:['station','shrine','archive'])})KiriCore.solvePuzzle(s,id,answers[id]);s.zone=${JSON.stringify(zone)};s.player={x:KiriMaps.maps[s.zone].spawn[0],y:KiriMaps.maps[s.zone].spawn[1],facing:3};localStorage.setItem('kiriakari.save.v1',JSON.stringify(s));})()`);
+      await send('Page.reload');await waitFor("!!window.KiriExploration && !document.getElementById('continue-game').disabled");await click('#continue-game');await waitFor(`document.getElementById('world').dataset.zone===${JSON.stringify(zone)}`);await waitFor('KiriRenderer.assetsReady()');await pause(700);await screenshot('preview-'+zone+'-floor.png');
+    }
+    assert.deepEqual(errors,[]);console.log('Shrine, archive and tower floor previews passed');await send('Browser.close');return;
+  }
   if(process.argv.includes('--interior-preview')){
     for(const [zone,file] of [['station-office','preview-station-office.png'],['town-workshop','preview-lantern-workshop.png']]){
       await send('Page.navigate',{url:base});await waitFor('!!window.KiriExploration');
@@ -125,7 +163,7 @@ async function main() {
   }
   assert.equal(await evaluate("document.getElementById('continue-game').disabled"), true);
   await click('#help-title'); await click('#setting-text'); await click('#modal-close');
-  await click('#new-game'); await drain();await object('toolbox');assert.equal(!!(await saved()).flags.lantern,false);
+  await click('#new-game'); await drain();await object('waiting-bench');assert.equal(await evaluate("document.getElementById('object-photo')===null && document.querySelector('[data-prop=memory-photo]').hidden"),true);await object('toolbox');assert.equal(!!(await saved()).flags.lantern,false);
   await object('ren');assert.equal((await saved()).flags.renMet,true);
   await travel('station-door','station-office');await object('duty-log');await pause(2800);await screenshot('preview-station-office.png');
   await object('old-lantern');assert.equal((await saved()).flags.lampFound,true);assert.equal(!!(await saved()).flags.lantern,false);
@@ -136,7 +174,9 @@ async function main() {
   await object('parcel');await travel('office-exit','station');assert.equal(await evaluate("document.getElementById('player').dataset.tileX"),'6');
   await object('ren');assert.ok((await saved()).items.includes('lockerKey'));await object('toolbox');assert.ok((await saved()).items.includes('dryMatches'));
   await object('ren',true,1);assert.equal(!!(await saved()).flags.lantern,false);
-  await travel('station-door','station-office');await object('lighting-table');assert.equal((await saved()).flags.lantern,true);assert.equal((await saved()).items.includes('dryMatches'),false);
+  await click('#bag-button');await click('[data-item="dryMatches"]');await pause(350);await screenshot('preview-backpack.png');await click('#bag-use');await drain();assert.equal((await saved()).flags.windTried,true);assert.equal(!!(await saved()).flags.lantern,false);assert.ok((await saved()).items.includes('dryMatches'));
+  await travel('station-door','station-office');await object('lighting-table');assert.equal(!!(await saved()).flags.lantern,false);
+  await click('#bag-button');await click('[data-item="dryMatches"]');await click('#bag-use');await drain();assert.equal((await saved()).flags.lantern,true);assert.equal((await saved()).flags.shelteredFlame,true);assert.equal((await saved()).items.includes('dryMatches'),false);
   if(mobileControlsOnly){
     assert.ok(mobilePrompts.some(t=>t.includes('轻触「引灯」切换回忆')));
     assert.equal(await evaluate("document.getElementById('touch-phase').disabled"),false);
@@ -217,7 +257,9 @@ async function main() {
     console.log(JSON.stringify({passed:true,results,errors,walkSheet:'assets/mio-walk-v2.png',directions:4},null,2));
     assert.deepEqual(errors,[]);await send('Browser.close');return;
   }
+  assert.equal(await evaluate("document.getElementById('object-photo')===null && document.querySelector('[data-prop=memory-photo]').hidden"),true);
   await echo(); await object('timetable');
+  assert.equal(await evaluate("!document.querySelector('[data-prop=memory-photo]').hidden"),true);
   assert.equal(await evaluate("getComputedStyle(document.querySelector('#object-photo .object-marker')).animationName"),'interaction-glint');
   assert.equal(await evaluate("getComputedStyle(document.querySelector('#object-photo .object-marker')).width"),'7px');
   const photoPosition=await evaluate("KiriData.zones.station.objects.find(o=>o.id==='photo')");
@@ -254,8 +296,14 @@ async function main() {
   assert.equal((await saved()).flags.parcelDelivered,true);assert.ok((await saved()).items.includes('routeCard'));
   await object('nagi');assert.equal(!!(await saved()).flags.helpedNagi,false);
   if((await saved()).phase==='echo')await click('#phase-button');await object('basket');assert.equal((await saved()).items.includes('redThread'),false);
-  await echo();await object('basket');assert.ok((await saved()).items.includes('redThread'));await object('well');
-  await travel('workshop-door','town-workshop');await object('workshop-record');await object('paste-table');assert.ok((await saved()).items.includes('ricePaste'));assert.equal((await saved()).items.includes('waterJar'),false);
+  assert.equal(await evaluate("document.getElementById('object-crane')===null && document.querySelector('[data-prop=eave-crane]').hidden && document.querySelector('.roof-thread').hidden"),true);
+  await echo();await object('basket');assert.equal(await evaluate("!document.querySelector('[data-prop=eave-crane]').hidden && !document.querySelector('.roof-thread').hidden"),true);assert.ok((await saved()).items.includes('redThread'));await object('well');
+  await travel('workshop-door','town-workshop');await object('workshop-record');
+  await evaluate("(()=>{const w=document.getElementById('world'),r=w.getBoundingClientRect(),p=KiriRenderer.project({x:1,y:7});w.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:r.left+p.x,clientY:r.top+p.y}));})()");await waitFor("document.getElementById('player').dataset.tileX==='1'&&document.getElementById('player').dataset.tileY==='7'&&!document.getElementById('player').classList.contains('walking')");
+  const press=async(key,code)=>{await evaluate("document.getElementById('world').focus()");await send('Input.dispatchKeyEvent',{type:'keyDown',key,code});await pause(40);await send('Input.dispatchKeyEvent',{type:'keyUp',key,code});await pause(50);};
+  await press('ArrowLeft','ArrowLeft');await press('e','KeyE');assert.equal(await evaluate("document.getElementById('dialogue').hidden"),true,'E ignores a nearby table while facing the wall');
+  await press('ArrowUp','ArrowUp');assert.equal(await evaluate("document.getElementById('nearby-hint').textContent.includes('待修的纸灯')"),true);await press('e','KeyE');assert.equal(await evaluate("document.getElementById('dialogue').hidden"),false,'E reaches the left cell of the 2x2 worktable');await drain();
+  await object('paste-table');assert.ok((await saved()).items.includes('ricePaste'));assert.equal((await saved()).items.includes('waterJar'),false);
   await object('workbench',true,1);assert.equal(!!(await saved()).flags.helpedNagi,false);assert.ok((await saved()).items.includes('redThread'));
   await object('workbench');assert.equal((await saved()).flags.helpedNagi,true);assert.equal((await saved()).items.includes('redThread'),false);assert.equal((await saved()).items.includes('ricePaste'),false);
   await pause(4300);await screenshot('preview-lantern-workshop.png');await travel('workshop-exit','town');

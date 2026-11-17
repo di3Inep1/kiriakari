@@ -13,7 +13,7 @@
     map.put = (x, y, tile, solid = false) => { if (x >= 0 && y >= 0 && x < w && y < h) { map.tiles[y * w + x] = tile; map.solids[y * w + x] = solid; } };
     map.rect = (x, y, width, height, tile, solid = false) => { for (let r = y; r < y + height; r++) for (let c = x; c < x + width; c++) map.put(c, r, tile, solid); };
     map.prop = (id, sprite, x, y, size, footprint = [], hanging = false) => {
-      map.props.push({id,sprite,x,y,size,hanging});
+      map.props.push({id,sprite,x,y,size,hanging,cells:footprint.length?footprint.map(([dx,dy])=>({x:x+dx,y:y+dy})):[{x,y}]});
       footprint.forEach(([dx,dy]) => { if(x+dx>=0&&x+dx<w&&y+dy>=0&&y+dy<h) map.solids[(y+dy)*w+x+dx]=true; });
     };
     map.border = tile => { map.rect(0, 0, w, 1, tile, true); map.rect(0, h - 1, w, 1, tile, true); map.rect(0, 0, 1, h, tile, true); map.rect(w - 1, 0, 1, h, tile, true); };
@@ -26,11 +26,13 @@
     maps[id] = map; return map;
   }
   let m = create('station', 32, 22, 0, [17,10]);m.border(34);
-  m.anchors={ren:[20,10],timetable:[11,8],photo:[4,9],'station-lock':[23,13],'to-town':[23,19],'station-door':[6,7],toolbox:[28,10],'waiting-bench':[4,9]};
+  m.anchors={ren:[20,10],timetable:[11,8],photo:[5,9],'station-lock':[23,13],'to-town':[23,19],'station-door':[6,7],toolbox:[28,10],'waiting-bench':[4,9]};
   m.rect(11,3,21,3,11,true);m.rect(12,5,20,1,47,true);
   m.rect(2,7,29,6,2);m.rect(12,6,19,1,2);m.platformEdges.push({x:12,y:6,width:19});
   m.house(3,4,7,4,19,'station-office');m.put(11,8,43,true);
   m.prop('photo-bench',0,4,9,2.7,[[-1,0],[0,0],[1,0]]);
+  Object.assign(m.props.at(-1),furniture.catalog.waitingBench,{kind:'waitingBench',grid:{x:3,y:9,w:3,d:1,h:1,top:9}});delete m.props.at(-1).size;
+  m.prop('memory-photo',8,5,9,.32);Object.assign(m.props.at(-1),{atlas:'items',phase:'echo',surfaceOn:'photo-bench'});
   m.prop('rail-buffer',3,11,5,1.3,[[0,0]]);Object.assign(m.props.at(-1),{atlas:'station'});
   [[12,8],[27,8],[21,16],[25,16]].forEach(([x,y])=>m.put(x,y,40,true));m.put(20,10,2,true);
   m.rect(0,13,32,1,58,true);m.rect(22,14,3,6,2);
@@ -48,7 +50,7 @@
   [[3, 2], [14, 5], [22, 5], [2, 21], [31, 18], [22, 22], [15, 19]].forEach(([x, y]) => m.put(x, y, 33, true));
   [[13, 11], [23, 11], [16, 18], [21, 18]].forEach(([x, y]) => m.put(x, y, 40, true));
   m.put(20, 10, 43, true); m.put(10, 14, 2, true); m.rect(34, 3, 1, 21, 6, true);
-  m.prop('eave-crane',0,...m.anchors.crane,.48,[],true);Object.assign(m.props.at(-1),{atlas:'crane',attachment:{building:craneHouse.id}});
+  m.prop('eave-crane',0,...m.anchors.crane,.48,[],true);Object.assign(m.props.at(-1),{atlas:'crane',phase:'echo',attachment:{building:craneHouse.id}});
   m.put(15,19,0);m.rect(14,18,3,4,2);
   m.prop('town-well',2,15,20,2.1,[[0,0],[-1,0],[1,0],[0,-1]]);Object.assign(m.props.at(-1),{atlas:'exploration'});
   m.prop('thread-basket',4,31,10,1.35,[[0,0]]);Object.assign(m.props.at(-1),{atlas:'exploration',clearedBy:'threadTaken',onlyItemInEcho:true});
@@ -152,10 +154,23 @@
     const path = []; for (let at = end; at !== start; at = previous.get(at)) path.push({ x: at % map.w, y: Math.floor(at / map.w) });
     return path.reverse();
   }
+  const FACING=[[0,1],[-1,0],[1,0],[0,-1]];
+  function frontCell(player){const [dx,dy]=FACING[player.facing]||FACING[0];return {x:player.x+dx,y:player.y+dy};}
+  function interactionCells(zone,object){
+    const prop=maps[zone].props.find(p=>p.id===object.support),g=prop?.grid;
+    if(g){const cells=[];for(let y=g.d?g.y:g.y+g.h-1;y<(g.d?g.y+g.d:g.y+g.h);y++)for(let x=g.x;x<g.x+g.w;x++)cells.push({x,y});return cells;}
+    return prop?.cells||[{x:object.x,y:object.y}];
+  }
+  function canInvestigate(zone,player,object){const front=frontCell(player);return interactionCells(zone,object).some(c=>c.x===front.x&&c.y===front.y);}
   function approach(zone, from, object,solved=[]) {
-    const candidates = [[0, 1], [-1, 0], [1, 0], [0, -1]].map(([dx, dy]) => ({ x: object.x + dx, y: object.y + dy }));
-    const paths = candidates.filter(p => walkable(zone, p.x, p.y,solved)).map(p => ({ point: p, path: findPath(zone, from, p,solved) })).filter(p => p.path.length || p.point.x === from.x && p.point.y === from.y);
-    return paths.sort((a, b) => a.path.length - b.path.length)[0] || null;
+    const candidates=[],focus=focusPoint(zone,object);
+    for(const cell of interactionCells(zone,object))for(let facing=0;facing<4;facing++){
+      const [dx,dy]=FACING[facing],point={x:cell.x-dx,y:cell.y-dy};
+      if(!walkable(zone,point.x,point.y,solved))continue;
+      const path=findPath(zone,from,point,solved);if(!path.length&&(point.x!==from.x||point.y!==from.y))continue;
+      candidates.push({point,cell,facing,path,focusDistance:Math.abs(cell.x-focus.x)+Math.abs(cell.y-focus.y)});
+    }
+    return candidates.sort((a,b)=>a.path.length-b.path.length||a.focusDistance-b.focusDistance)[0]||null;
   }
   function nearestFloor(zone, point,solved=[]) {
     const map = maps[zone]; if (walkable(zone, point.x, point.y,solved)) return { x: point.x, y: point.y };
@@ -172,5 +187,6 @@
     if(prop?.grid){const g=prop.grid,f=prop.focus||[.5,.4];return {x:g.x+g.w*f[0]-.5,y:g.top+g.h*f[1]-.92};}
     return {x:object.x+(object.focusOffset?.x||0),y:object.y+(object.focusOffset?.y||0)};
   }
-  return { LAYOUT_VERSION,maps,walkable,findPath,approach,nearestFloor,attachmentPose,focusPoint };
+  function propGroundY(zone,prop){const parent=prop.surfaceOn&&maps[zone].props.find(p=>p.id===prop.surfaceOn),g=prop.grid||parent?.grid;return g?g.y+(g.d||1)-.92:prop.y;}
+  return { LAYOUT_VERSION,maps,walkable,findPath,approach,nearestFloor,attachmentPose,focusPoint,frontCell,interactionCells,canInvestigate,propGroundY };
 });

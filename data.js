@@ -8,7 +8,7 @@
         { id: 'toolbox', name: '上锁的维修箱', action:'toolbox',mark:'inspect',support:'maintenance-chest',focusOffset:{x:0,y:-.45} },
         { id: 'waiting-bench', name: '候车长椅', phase:'present',action:'waiting-bench',mark:'inspect',support:'photo-bench',focusOffset:{x:.78,y:-.45} },
         { id: 'timetable', name: '褪色的时刻表', x: 25, y: 43, action: 'date', mark: 'inspect' },
-        { id: 'photo', name: '长椅上的合照', x: 34, y: 70, phase: 'echo', action: 'photo', mark: 'memory', support: 'photo-bench', focusOffset: { x: .78, y: -.45 } },
+        { id: 'photo', name: '长椅上的合照', phase: 'echo', action: 'photo', mark: 'memory', support: 'memory-photo', focusOffset: { x:0,y:-.18 } },
         { id: 'station-lock', name: '检票闸门', x: 83, y: 53, action: 'puzzle-station', mark: 'puzzle',support:'station-ticket-gate',focusOffset:{x:0,y:-.75} },
         { id: 'to-town', name: '前往灯见街', x: 90, y: 74, action: 'go-town', mark: 'exit' }
       ] },
@@ -71,7 +71,7 @@
     {id:'workshop-exit',name:'返回灯见街',action:'go-town',mark:'exit'}
   ]};
   const clues = {
-    dutyLog:{title:'站务的防潮记录',place:'站房 · 值班簿',text:'引灯收在站房西侧矮柜。火柴用油纸包好，锁在站台最东边的维修箱里；黄铜钥匙由当班站务员莲保管。整灯台可以检查灯芯、点火，莲也能替人挡风。'},
+    dutyLog:{title:'站务的防潮记录',place:'站房 · 值班簿',text:'引灯收在站房西侧矮柜。防潮火柴锁在站台最东边的维修箱，黄铜钥匙由莲保管。使用物品请打开背包；整灯台旁没有穿堂风，旧窗上的火痕像是试过许多次。'},
     repairRecipe:{title:'制灯人的修补法',place:'制灯铺 · 旧样本',text:'先用红线绑稳灯骨，再用清水调开干米糊，薄薄刷在破纸边缘。针线篮在东侧民居檐边；主街南边的石井备有干净的水罐，糨糊台就在制灯铺东侧。'},
     rescueRoute:{title:'七年前的送灯路线',place:'凪婆婆 · 旧包裹',text:'包裹里是栞没来得及送到的备用灯芯。婆婆在旧路线图上指出：北边月见神社保存印钥，东边书库留下祭典记录，再往后才能抵达钟楼。图角写着：「先把害怕的人送上列车，再数剩下的灯。」'},
     festivalNotice:{title:'灯见街的祭典告示',place:'灯见街 · 主街',text:'七月十六日，灯见祭。制灯铺在主街西侧，取水到街南石井；散落的针线请送回东侧民居檐边的篮子。月见神社沿主街往北。请为每盏灯写下一个不愿忘记的名字。'},

@@ -69,6 +69,7 @@ test('every object, character and exit has a reachable adjacent tile', () => {
   for (const [id, zone] of Object.entries(sandbox.KiriData.zones)) for (const object of zone.objects) {
     const plan = M.approach(id, { x: zone.spawn[0], y: zone.spawn[1] }, object,C.PUZZLES);
     assert.ok(plan, `${id}/${object.id} is reachable`);
+    assert.equal(M.canInvestigate(id,{...plan.point,facing:plan.facing},object),true,`${id}/${object.id} approach faces the actual interaction cells`);
     let previous = { x: zone.spawn[0], y: zone.spawn[1] };
     for (const point of plan.path) { assert.equal(M.walkable(id, point.x, point.y,C.PUZZLES), true); assert.equal(Math.abs(point.x - previous.x) + Math.abs(point.y - previous.y), 1); previous = point; }
   }
@@ -120,7 +121,7 @@ test('an unlit lamp needs a borrowed key and dry matches; lighting consumes the 
   s.zone='station-office';assert.equal(C.explore(s,'take-lamp'),'done');assert.equal(C.explore(s,'take-lamp'),'already');
   assert.equal(C.explore(s,'light-lantern'),'missing-matches');assert.equal(!!s.flags.lantern,false);assert.equal(C.solvePuzzle(s,'station',solutions.station),false);
   s.zone='station';assert.equal(C.explore(s,'borrow-key'),'done');assert.equal(C.explore(s,'borrow-key'),'already');assert.equal(C.explore(s,'open-toolbox'),'done');
-  assert.ok(C.hasItem(s,'dryMatches'));assert.equal(C.explore(s,'light-lantern'),'done');assert.equal(C.hasItem(s,'dryMatches'),false);assert.equal(s.flags.lantern,true);
+  assert.ok(C.hasItem(s,'dryMatches'));assert.equal(C.useItem(s,'dryMatches'),'wind');assert.equal(C.hasItem(s,'dryMatches'),true);assert.equal(!!s.flags.lantern,false);s.zone='station-office';assert.equal(C.useItem(s,'dryMatches'),'done');assert.equal(C.hasItem(s,'dryMatches'),false);assert.equal(s.flags.lantern,true);assert.equal(s.flags.shelteredFlame,true);s.zone='station';
   const after=JSON.stringify(s);assert.equal(C.explore(s,'light-lantern'),'already');assert.equal(C.explore(s,'open-toolbox'),'already');assert.equal(JSON.stringify(s),after);
 });
 test('town repairs require a real request, thread from memory, water and prepared paste',()=>{
@@ -153,13 +154,32 @@ test('restoring a partially recorded quest recovers its unique unspent materials
   const r=C.restore(s);for(const item of ['guideLamp','dryMatches','redThread','oldParcel'])assert.equal(C.hasItem(r,item),true);
   r.items.push('foreign-item','redThread');const again=C.restore(r);assert.equal(again.items.includes('foreign-item'),false);assert.equal(again.items.filter(id=>id==='redThread').length,1);
 });
-test('Ren gives practical progress-dependent help and lights the lamp only when asked with matches',()=>{
+test('Ren supplies practical hints and never takes over the player lighting action',()=>{
   const fs=require('node:fs'),vm=require('node:vm'),sandbox={KiriCore:C,KiriData:{}};vm.runInNewContext(fs.readFileSync(require.resolve('../exploration.js'),'utf8'),sandbox);
   const s=C.newGame(),speak=(choice=0)=>sandbox.KiriExploration.run('ren',s,{changed(){},talk(lines,end){for(const line of lines){if(line.choices)line.choices[choice].effect?.();}end?.();}});
   speak();assert.equal(s.flags.renMet,true);assert.equal(!!s.flags.lantern,false);assert.equal(C.hasItem(s,'guideLamp'),false);
   s.zone='station-office';C.explore(s,'take-lamp');s.zone='station';speak();assert.equal(C.hasItem(s,'lockerKey'),true);
   C.explore(s,'open-toolbox');speak(1);assert.equal(!!s.flags.lantern,false);assert.equal(C.hasItem(s,'dryMatches'),true);
-  speak(0);assert.equal(s.flags.lantern,true);assert.equal(C.hasItem(s,'dryMatches'),false);assert.equal(!!s.flags.promisedRen,false);
+  speak(0);assert.equal(!!s.flags.lantern,false);assert.equal(C.hasItem(s,'dryMatches'),true);assert.equal(!!s.flags.promisedRen,false);
+});
+test('keyboard investigation targets only the facing cell and includes complete furniture footprints',()=>{
+  const object={x:9,y:9};for(const [x,y,facing] of [[9,8,0],[10,9,1],[8,9,2],[9,10,3]]){assert.equal(M.canInvestigate('station',{x,y,facing},object),true);assert.equal(M.canInvestigate('station',{x,y,facing:(facing+1)%4},object),false);}
+  assert.equal(M.canInvestigate('station',{x:8,y:8,facing:0},object),false);
+  const table={support:'repair-bench'};assert.equal(M.interactionCells('town-workshop',table).length,4);assert.equal(M.canInvestigate('town-workshop',{x:1,y:7,facing:3},table),true);assert.equal(M.canInvestigate('town-workshop',{x:3,y:5,facing:1},table),true);assert.equal(M.canInvestigate('town-workshop',{x:1,y:7,facing:0},table),false);
+});
+test('echo photo and crane are separate phase-gated art, while the bench stays empty',()=>{
+  const photo=M.maps.station.props.find(p=>p.id==='memory-photo'),bench=M.maps.station.props.find(p=>p.id==='photo-bench'),crane=M.maps.town.props.find(p=>p.id==='eave-crane');
+  assert.equal(photo.phase,'echo');assert.equal(photo.atlas,'items');assert.equal(crane.phase,'echo');assert.equal(bench.kind,'waitingBench');assert.equal(bench.phase,undefined);assert.equal(photo.x,5);assert.equal(bench.grid.w,3);
+  assert.equal(photo.surfaceOn,bench.id);assert.equal(M.propGroundY('station',photo),M.propGroundY('station',bench));
+  const s=C.newGame();assert.equal(C.inPhase(s,'present'),true);assert.equal(C.inPhase(s,'echo'),false);s.phase='echo';assert.equal(C.inPhase(s,'echo'),false);C.setFlag(s,'lantern');assert.equal(C.inPhase(s,'echo'),true);s.phase='present';assert.equal(C.inPhase(s,'echo'),false);
+});
+test('item use respects facing workstations, preserves materials on mistakes, and persists the hidden discovery',()=>{
+  const s=C.newGame();s.zone='station-office';C.explore(s,'take-lamp');s.zone='station';C.explore(s,'borrow-key');
+  assert.equal(C.useItem(s,'lockerKey'),'wrong-chest');assert.equal(C.hasItem(s,'lockerKey'),true);
+  const plan=M.approach('station',s.player,{support:'maintenance-chest'});s.player={...plan.point,facing:plan.facing};assert.equal(C.useItem(s,'lockerKey'),'done');assert.equal(C.useItem(s,'dryMatches'),'wind');assert.equal(C.hasItem(s,'dryMatches'),true);
+  s.zone='station-office';assert.equal(C.useItem(s,'dryMatches'),'done');const restored=C.restore(JSON.parse(JSON.stringify(s)));assert.equal(restored.flags.shelteredFlame,true);assert.equal(restored.flags.windTried,true);assert.equal(C.hasItem(restored,'dryMatches'),false);
+  C.solvePuzzle(s,'station',solutions.station);s.zone='town';C.explore(s,'draw-water');assert.equal(C.useItem(s,'waterJar'),'wrong-paste-table');assert.equal(C.hasItem(s,'waterJar'),true);
+  s.zone='town-workshop';const paste=M.approach(s.zone,{x:6,y:8},{support:'paste-bench'});s.player={...paste.point,facing:paste.facing};assert.equal(C.useItem(s,'waterJar'),'done');assert.equal(C.hasItem(s,'waterJar'),false);assert.equal(C.hasItem(s,'ricePaste'),true);
 });
 
 test('old interior saves relocate to the resized room entrance without losing exploration progress',()=>{

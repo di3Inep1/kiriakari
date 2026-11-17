@@ -12,10 +12,11 @@
   const PUZZLES = ['station', 'shrine', 'archive', 'tower'];
   const MEMORIES = ['photo', 'crane', 'tape', 'names'];
   const CLUES = ['date', 'lanternOrder', 'chronology', 'clockMarks','dutyLog','repairRecipe','rescueRoute','festivalNotice'];
-  const FLAGS = ['lantern', 'promisedRen', 'helpedNagi', 'heardShiori', 'truth','renMet','lampFound','matchesFound','nagiMet','repairRequested','threadTaken','parcelTaken','parcelDelivered'];
+  const FLAGS = ['lantern', 'promisedRen', 'helpedNagi', 'heardShiori', 'truth','renMet','lampFound','matchesFound','nagiMet','repairRequested','threadTaken','parcelTaken','parcelDelivered','windTried','shelteredFlame'];
   const ITEMS=['guideLamp','lockerKey','dryMatches','redThread','waterJar','ricePaste','oldParcel','routeCard'];
   const ENDINGS = ['departure', 'keeper', 'nameless', 'dawn'];
   const same = (a, b) => Array.isArray(a) && a.length === b.length && a.every((x, i) => x === b[i]);
+  function inPhase(state,phase){return !phase||phase===state.phase&&(phase!=='echo'||!!state.flags?.lantern);}
   function newGame() {
     return { version: VERSION, explorationVersion:1,items:[],layoutVersion:Maps.LAYOUT_VERSION,zone: 'station', phase: 'present', player: { x: Maps.maps.station.spawn[0], y: Maps.maps.station.spawn[1], facing: 0 }, flags: {}, clues: [], memories: [], solved: [], seen: [], elapsed: 0, started: Date.now(), ending: null };
   }
@@ -41,12 +42,12 @@
   }
   // All exploration rewards and consumption are checked here, including repeated visits.
   function explore(state,action){
-    const places={'take-lamp':['station-office'],'borrow-key':['station'],'open-toolbox':['station'],'light-lantern':['station','station-office'],'take-parcel':['station-office'],'take-thread':['town'],'draw-water':['town'],'mix-paste':['town-workshop'],'meet-nagi':['town'],'repair-lamp':['town','town-workshop'],'deliver-parcel':['town']};
+    const places={'take-lamp':['station-office'],'borrow-key':['station'],'open-toolbox':['station'],'light-lantern':ZONES,'take-parcel':['station-office'],'take-thread':['town'],'draw-water':['town'],'mix-paste':['town-workshop'],'meet-nagi':['town'],'repair-lamp':['town','town-workshop'],'deliver-parcel':['town']};
     if(!places[action]||!places[action].includes(state.zone)||!canVisit(state,state.zone))return 'unavailable';
     if(action==='take-lamp'){if(state.flags.lampFound)return 'already';state.flags.lampFound=true;giveItem(state,'guideLamp');}
     if(action==='borrow-key'){if(!state.flags.lampFound)return 'missing-lamp';if(!giveItem(state,'lockerKey'))return 'already';}
     if(action==='open-toolbox'){if(state.flags.matchesFound||state.flags.lantern)return 'already';if(!hasItem(state,'lockerKey'))return 'missing-key';state.flags.matchesFound=true;giveItem(state,'dryMatches');}
-    if(action==='light-lantern'){if(state.flags.lantern)return 'already';if(!state.flags.lampFound)return 'missing-lamp';if(!hasItem(state,'dryMatches'))return 'missing-matches';consume(state,'dryMatches');setFlag(state,'lantern');}
+    if(action==='light-lantern'){if(state.flags.lantern)return 'already';if(!state.flags.lampFound)return 'missing-lamp';if(!hasItem(state,'dryMatches'))return 'missing-matches';if(!['station-office','town-workshop','archive'].includes(state.zone)){state.flags.windTried=true;return 'wind';}consume(state,'dryMatches');setFlag(state,'lantern');if(state.flags.windTried)state.flags.shelteredFlame=true;}
     if(action==='take-parcel'){if(state.flags.parcelTaken)return 'already';state.flags.parcelTaken=true;giveItem(state,'oldParcel');}
     if(action==='take-thread'){if(state.flags.threadTaken||state.flags.helpedNagi)return 'already';if(!state.flags.lantern||state.phase!=='echo')return 'wrong-phase';state.flags.threadTaken=true;giveItem(state,'redThread');}
     if(action==='draw-water'){if(hasItem(state,'waterJar')||hasItem(state,'ricePaste')||state.flags.helpedNagi)return 'already';giveItem(state,'waterJar');}
@@ -55,6 +56,18 @@
     if(action==='repair-lamp'){if(state.flags.helpedNagi)return 'already';if(!state.flags.nagiMet)return 'missing-request';if(!hasItem(state,'redThread'))return 'missing-thread';if(!hasItem(state,'ricePaste'))return 'missing-paste';consume(state,'redThread');consume(state,'ricePaste');setFlag(state,'helpedNagi');addClue(state,'lanternOrder');}
     if(action==='deliver-parcel'){if(state.flags.parcelDelivered)return 'already';if(!state.flags.nagiMet||!hasItem(state,'oldParcel'))return 'missing-parcel';consume(state,'oldParcel');state.flags.parcelDelivered=true;giveItem(state,'routeCard');addClue(state,'rescueRoute');}
     return 'done';
+  }
+  function useItem(state,id){
+    if(!ITEMS.includes(id)||!hasItem(state,id))return 'missing-item';
+    const facing=id=>Maps.canInvestigate(state.zone,state.player,{support:id});
+    if(id==='guideLamp')return state.flags.lantern?'toggle-phase':'unlit';
+    if(id==='dryMatches')return explore(state,'light-lantern');
+    if(id==='lockerKey')return state.zone==='station'&&facing('maintenance-chest')?explore(state,'open-toolbox'):'wrong-chest';
+    if(id==='waterJar')return state.zone==='town-workshop'&&facing('paste-bench')?explore(state,'mix-paste'):'wrong-paste-table';
+    if(id==='redThread'||id==='ricePaste')return state.zone==='town-workshop'&&facing('repair-bench')?explore(state,'repair-lamp'):'wrong-workbench';
+    if(id==='oldParcel'){const [x,y]=Maps.maps.town.anchors.nagi;return state.zone==='town'&&Maps.canInvestigate('town',state.player,{x,y})?explore(state,'deliver-parcel'):'wrong-recipient';}
+    if(id==='routeCard')return 'open-map';
+    return 'unavailable';
   }
   function turnGear(values, index) {
     const next = [...values];
@@ -95,7 +108,7 @@
   function objective(state) {
     if (!state.flags.lantern){
       if(!state.flags.lampFound)return ['序章 · 熄灭的引灯',state.zone==='station-office'?'调查房内西侧矮柜，取走引灯；值班簿记着火种的去向。':'进入车站西侧的站房，调查储物柜；莲知道这里的旧事。'];
-      if(hasItem(state,'dryMatches'))return ['序章 · 火种',state.zone==='station-office'?'在寄物架对面的整灯台点燃引灯，也可在手记中使用防潮火柴。':'回站房整灯台点燃引灯，或请站台上的莲帮忙挡风。'];
+      if(hasItem(state,'dryMatches'))return ['序章 · 火种',state.flags.windTried?'站台风太大。找个背风的室内，再打开背包使用防潮火柴。':'防潮火柴已经收进背包。试着用它点亮引灯。'];
       if(hasItem(state,'lockerKey'))return ['序章 · 火种','用黄铜钥匙打开站台东端的工具箱，找防潮火柴。'];
       return ['序章 · 熄灭的引灯','引灯已经找到，却没有火种。向站台上的莲打听工具箱钥匙。'];
     }
@@ -145,5 +158,5 @@
     if (canEnd(state, raw.ending)) state.ending = raw.ending;
     return state;
   }
-  return { VERSION, ZONES, MAP_ZONES, PUZZLES, MEMORIES, CLUES, ITEMS, ENDINGS, newGame, canVisit, hasItem,giveItem,explore,addClue, collectMemory, setFlag, turnGear, checkPuzzle, puzzleAvailable, solvePuzzle, missingForDawn, canEnd, finish, objective, restore };
+  return { VERSION, ZONES, MAP_ZONES, PUZZLES, MEMORIES, CLUES, ITEMS, ENDINGS, newGame, canVisit, hasItem,giveItem,explore,useItem,inPhase,addClue, collectMemory, setFlag, turnGear, checkPuzzle, puzzleAvailable, solvePuzzle, missingForDawn, canEnd, finish, objective, restore };
 });

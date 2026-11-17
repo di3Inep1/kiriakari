@@ -4,7 +4,7 @@
   const $ = id => document.getElementById(id);
   const KEYS = { auto: 'kiriakari.save.v1', manual: 'kiriakari.manual.v1', checkpoint: 'kiriakari.bridge.v1', collection: 'kiriakari.endings.v1', settings: 'kiriakari.settings.v1' };
   let state = null, screen = 'title', modalKind = null, modalReturnFocus = null, dialogueReturnFocus = null;
-  let target = null, pendingObject = null, nearest = null, lastFrame = performance.now(), saveTick = 0, lastWalk = false;
+  let target = null, pendingObject = null, pendingFacing=0, nearest = null, lastFrame = performance.now(), saveTick = 0, lastWalk = false;
   let route = [], movementSavePending = false, walkSheetReady = false;
   const motion=Move.create(),walkSheet=new Image();
   let lanternPoint={x:0,y:0};
@@ -18,8 +18,8 @@
   const touchLayout=window.matchMedia('(max-width: 700px), (pointer: coarse)');
   function controlText(text){
     if(!touchLayout.matches)return text;
-    return text.replace(/按 Q[ \t]*/g,'轻触「引灯」').replace(/按 M[ \t]*/g,'轻触顶部「地图」')
-      .replace('使用 WASD 或方向键移动，靠近光点后按 E 调查。','使用屏幕方向键移动，靠近光点后轻触「调查」。')
+    return text.replace(/按 Q[ \t]*/g,'轻触「引灯」').replace(/按 M[ \t]*/g,'轻触顶部「地图」').replace(/按 B[ \t]*/g,'轻触顶部「背包」')
+      .replace('使用 WASD 或方向键移动，面向物件后按 E 调查。','使用屏幕方向键移动，面向物件后轻触「调查」。')
       .replace('任意时刻也可按 E 显示全文','也可轻触对话中的「显示全文」');
   }
   function syncPhaseControls(){
@@ -80,7 +80,7 @@
         { who: 'mio', text: '七年前，姐姐在灯见祭的暴雨里失踪了。所有人都说，雾灯町已经和那场洪水一起消失。' },
         { who: 'mio', text: '昨天，我却收到她寄来的信。纸上只有一句话：\n「澪，钟响十三次以前，别忘了回家的路。」' },
         { text: '末班车把你放在一座寂静的站台。时钟指着 23:59，秒针却一动不动。远处，一个站务员正望着你。' },
-        { text: '使用 WASD 或方向键移动，靠近光点后按 E 调查。也可以直接点击人物或物件，澪会走过去。\n可以先向莲问路，也可以先走进西侧站房，寻找姐姐留下的引灯。' }
+        { text: '使用 WASD 或方向键移动，面向物件后按 E 调查。也可以直接点击人物或物件，澪会走过去。\n可以先向莲问路，也可以先走进西侧站房，寻找姐姐留下的引灯。' }
       ], () => { showSplash(); $('world').focus({ preventScroll: true }); });
     } else $('world').focus({ preventScroll: true });
   }
@@ -119,7 +119,7 @@
     });
     nearest = null; updatePlayer(false); updateNearest();
   }
-  function visibleObjects() { return D.zones[state.zone].objects.filter(obj => !obj.phase || obj.phase === state.phase).map(obj=>({...obj,name:KiriExploration.objectName(state,obj)})); }
+  function visibleObjects() { return D.zones[state.zone].objects.filter(obj => C.inPhase(state,obj.phase)).map(obj=>({...obj,name:KiriExploration.objectName(state,obj)})); }
   function updatePlayer(walking, visual = state?Move.visual(motion,state.player):null) {
     if (!state) return;
     const player = $('player'), point = R.project(visual); player.style.left = point.x + 'px'; player.style.top = point.y + 'px';
@@ -140,7 +140,7 @@
       const el = $(`object-${obj.id}`), position = R.project(M.focusPoint(state.zone,obj));
       if (el) {
         const prop=obj.support&&M.maps[state.zone].props.find(p=>p.id===obj.support),pose=prop&&M.attachmentPose(state.zone,prop);
-        el.style.left=position.x+'px';el.style.top=position.y+'px';el.style.zIndex=String(prop?.grid?R.depth(prop.grid.y+(prop.grid.d||1)-.92,3):pose?R.depth(pose.building.frontY-.92,3):R.depth(obj.y,obj.character!==undefined?0:3));
+        el.style.left=position.x+'px';el.style.top=position.y+'px';el.style.zIndex=String(prop&&(prop.grid||prop.surfaceOn)?R.depth(M.propGroundY(state.zone,prop),3):pose?R.depth(pose.building.frontY-.92,3):R.depth(obj.y,obj.character!==undefined?0:3));
       }
     });
     if (target) showClickTarget(target);
@@ -154,18 +154,18 @@
   function updateNearest() {
     if (!state) return;
     const objects = visibleObjects();
-    const distance = obj => Math.abs(obj.x - state.player.x) + Math.abs(obj.y - state.player.y);
-    nearest = objects.filter(obj => distance(obj) <= 1).sort((a, b) => distance(a) - distance(b))[0] || null;
+    nearest = motion.step?null:objects.find(obj=>M.canInvestigate(state.zone,state.player,obj))||null;
+    const front=M.frontCell(state.player);$('world').dataset.frontCell=front.x+','+front.y;
     objects.forEach(obj => $(`object-${obj.id}`)?.classList.toggle('near', obj === nearest));
     const key=touchLayout.matches?'调查':'E';
     $('nearby-hint').innerHTML = nearest ? `<kbd>${key}</kbd> ${nearest.character !== undefined ? '交谈 · ' : ''}${nearest.name}` : `<kbd>${key}</kbd> 靠近光点调查`;
   }
   function approach(obj) {
     if (screen !== 'play' || modalKind || !$('dialogue').hidden || transitioning) return;
-    if (!motion.step&&Math.abs(obj.x - state.player.x) + Math.abs(obj.y - state.player.y) <= 1) return interact(obj);
     const plan = M.approach(state.zone, motion.step?.to||state.player, obj,state.solved);
     if (!plan) return toast('这边被挡住了。试着从另一侧靠近。');
-    clearTarget(false); route = plan.path; target = plan.point; pendingObject = obj; showClickTarget(target);
+    if(!motion.step&&!plan.path.length){state.player.facing=plan.facing;updatePlayer(false);updateNearest();return interact(obj);}
+    clearTarget(false); route = plan.path; target = plan.point; pendingObject = obj;pendingFacing=plan.facing;showClickTarget(target);
     $('world').focus({ preventScroll: true });
   }
   function showClickTarget(point) { const p = R.project(point); $('click-target').hidden = false; $('click-target').style.left = p.x + 'px'; $('click-target').style.top = p.y + 'px'; }
@@ -192,17 +192,17 @@
     if (screen !== 'play' || modalKind || !$('dialogue').hidden || transitioning) return;
     if (!state.flags.lantern) return toast(state.flags.lampFound?'引灯还未点亮。寻找火种，或者向莲求助。':'先进入站房，在西侧矮柜找到引灯。');
     clearTarget(false); state.phase = state.phase === 'echo' ? 'present' : 'echo';
-    S.phase(state.phase === 'echo'); renderWorld(); save();
+    S.phase(state.phase === 'echo'); renderWorld();pulseWorld('phase-shift');save();
     if (!state.seen.includes('echo-tutorial')) {
       state.seen.push('echo-tutorial');
       toast('回忆中会出现褪去的文字与旧日的物件。细小光点能找回一段回忆。');
     }
   }
-  function interact(obj) {
+  function interact(obj,automaticExit=false) {
     if (!obj || screen !== 'play' || modalKind || !$('dialogue').hidden || transitioning) return;
+    if(motion.step||(!automaticExit&&!M.canInvestigate(state.zone,state.player,obj)))return;
+    if(!visibleObjects().some(o=>o.id===obj.id))return;
     keys.clear(); clearTarget(); S.click();
-    const faceX = obj.x - state.player.x, faceY = obj.y - state.player.y;
-    if (faceX || faceY) state.player.facing = Math.abs(faceX) > Math.abs(faceY) ? (faceX < 0 ? 1 : 2) : (faceY < 0 ? 3 : 0);
     const action = obj.action;
     if (action.startsWith('go-')) return changeZone(action.slice(3));
     if (action.startsWith('puzzle-')) return openPuzzle(action.slice(7));
@@ -213,7 +213,8 @@
     if (action === 'tower-shiori') return talkShiori();
     if (action === 'finale') return beginFinale();
   }
-  function changed(message) { renderHUD(); renderWorld(); save(); if (message) toast(message); $('journal-dot').hidden = false; }
+  function pulseWorld(effect){const world=$('world');world.classList.remove(effect);void world.offsetWidth;world.classList.add(effect);setTimeout(()=>world.classList.remove(effect),950);}
+  function changed(message) { renderHUD(); renderWorld(); save(); if (message) {toast(message);if(/获得|接下|取走|已使用/.test(message))pulseWorld('item-received');} $('journal-dot').hidden = false; }
   function inspectClue(id) {
     if (state.phase !== 'echo') {
       const texts = { date: '时刻表上只剩下模糊的墨迹。背面似乎曾写过祭典的日期。', lanternOrder: '绘马上的字被雨水洗去了。只有「归舟」两字隐约可见。', chronology: '手记有四处被人涂黑。隔着纸页，你听见很远的钟声。', clockMarks: '齿轮旁刻着几个难以辨认的数字。油污盖住了指针的方向。' };
@@ -227,7 +228,7 @@
   function inspectMemory(id) {
     const memory = D.memories[id], fresh = !state.memories.includes(id);
     talk([{ who: id === 'tape' ? 'shiori' : undefined, text: memory.text }], () => {
-      C.collectMemory(state, id); if (fresh) S.chime(); changed(fresh ? `找回回忆 · ${memory.title}（${state.memories.length} / 4）` : null);
+      C.collectMemory(state, id); if (fresh) S.chime(); changed(fresh ? `找回回忆 · ${memory.title}（${state.memories.length} / 4）` : null);if(fresh&&id==='photo')showCG('sisters');
     });
   }
   function talkShiori() {
@@ -306,6 +307,7 @@
     keys.clear(); clearTarget(); if (state) updatePlayer(false);
     if (!modalKind) modalReturnFocus = document.activeElement;
     modalKind = kind; $('modal-title').textContent = title; $('modal-eyebrow').textContent = eyebrow;
+    $('modal-card').classList.toggle('cg-card',kind==='cg');
     $('modal-card').classList.toggle('wide', wide); $('modal-body').innerHTML = controlText(html); $('modal').hidden = false;
     $('modal-close').focus({ preventScroll: true });
   }
@@ -369,6 +371,54 @@
     };
     talk(rewards[id], () => { renderHUD(); save(); toast('道路已点亮 · 按 M 查看地图'); });
   }
+  const CG={
+    ignition:{title:'第一簇火',image:'assets/cg-first-flame.png',caption:'这一次，是你亲手护住了灯火。'},
+    sisters:{title:'长椅上的约定',image:'assets/cg-sisters-platform.png',caption:'如果迷了路，就在原地等我。'}
+  };
+  const BAG={
+    guideLamp:{icon:0,name:'引灯',description:'姐姐留下的木框纸灯。点亮后能照见旧日，切换时空不会消耗燃料。',verb:'举起 / 收起'},
+    lockerKey:{icon:1,name:'维修箱黄铜钥匙',description:'面向站台东端的维修箱，再试用这把钥匙。',verb:'试用钥匙'},
+    dryMatches:{icon:2,name:'防潮火柴',description:'油纸里还有几根干燥的火柴。可用来点燃引灯。',verb:'点燃引灯'},
+    redThread:{icon:3,name:'旧日的红线',description:'面向制灯铺的修灯台，与米糊一起使用，绑稳破损的灯骨。',verb:'用于修灯'},
+    waterJar:{icon:4,name:'一罐清水',description:'面向制灯铺的糨糊台使用，少量调开干米糊。',verb:'调开米糊'},
+    ricePaste:{icon:5,name:'调好的米糊',description:'面向制灯铺的修灯台使用，薄薄刷在旧纸边缘。还需要红线。',verb:'用于修灯'},
+    oldParcel:{icon:6,name:'寄给制灯铺的旧包裹',description:'寄件人是姐姐。面向灯见街的凪婆婆时，可以亲手交给她。',verb:'交付包裹'},
+    routeCard:{icon:7,name:'送灯路线图',description:'婆婆标记过的小镇路线。打开后可以查看已探索的旧地。',verb:'查看路线'}
+  };
+  function itemIcon(id){const icon=BAG[id].icon;return `<span class="item-icon" style="background-position:${icon%4*100/3}% ${Math.floor(icon/4)*50}%" aria-hidden="true"></span>`;}
+  function openBag(selected){
+    if(!state)return;
+    if(typeof selected!=='string'||!state.items.includes(selected))selected=state.items[0];
+    const meta=BAG[selected];
+    let body=`<p class="bag-intro">随身道具 · ${state.items.length} 件<span>先选择物品，再尝试使用。</span></p><div class="bag-layout"><div class="bag-grid" role="group" aria-label="随身物品">${state.items.map(id=>`<button class="bag-slot ${id===selected?'selected':''}" data-item="${id}" aria-pressed="${id===selected}">${itemIcon(id)}<span>${BAG[id].name}</span></button>`).join('')||'<p class="bag-empty">背包里只有姐姐的来信。沿途找到的道具会收在这里。</p>'}</div><section class="bag-detail">${meta?`${itemIcon(selected)}<h3>${meta.name}${selected==='guideLamp'?state.flags.lantern?' · 已点亮':' · 熄灭':''}</h3><p>${meta.description}</p><button id="bag-use" class="button primary" data-use-item="${selected}">${selected==='guideLamp'&&!state.flags.lantern?'检查灯芯':meta.verb}</button>`:'<h3>一封迟到的信</h3><p>「澪，钟响十三次以前，别忘了回家的路。」</p>'}</section></div>`;
+    body+=`<div class="bag-achievement ${state.flags.shelteredFlame?'unlocked':''}">${state.flags.shelteredFlame?'✧ 学会护火 · 在风中失败后，独自于室内点亮引灯。':'◇ 一段小小的发现，尚未记下。'}</div>`;
+    openModal('澪的背包','THINGS CARRIED THROUGH THE FOG','bag',body,true);
+    $('modal-body').querySelectorAll('[data-item]').forEach(button=>button.onclick=()=>{openBag(button.dataset.item);$('modal-body').querySelector('[data-item="'+button.dataset.item+'"]').focus({preventScroll:true});});
+    if($('bag-use'))$('bag-use').onclick=()=>useBagItem(selected);
+  }
+  function useBagItem(id){
+    const result=C.useItem(state,id);closeModal(false);
+    if(result==='toggle-phase')return togglePhase();
+    if(result==='open-map')return openMap();
+    if(result==='wind'){
+      changed();pulseWorld('wind-gust');
+      return talk([{text:'火柴刚亮，站台上的风便把火苗吹歪。你赶紧收好油纸包，剩下的火柴仍然干燥。'},{who:'mio',text:'不是火柴的问题……得找个背风的地方。木屋里的整灯台，应该没有这样的穿堂风。'}]);
+    }
+    if(result==='done'){
+      changed();
+      if(id==='dryMatches')return talk([{text:'你靠近桌边，擦亮火柴。没有风来争抢，灯芯终于接住了那一小簇火。'},{who:'mio',text:'亮起来了……是我自己点亮的。\n（按 Q 切换回忆，试着调查时刻表。）'}],()=>{pulseWorld('item-received');if(state.flags.shelteredFlame)toast('隐藏成就 · 学会护火');showCG('ignition');});
+      const messages={lockerKey:'黄铜钥匙转动锁芯。防潮火柴收进了背包。',waterJar:'清水将干米糊慢慢调开。你把调好的米糊收好。',redThread:'你绑稳灯骨，薄薄补好纸面。婆婆教的归舟歌已记进手记。',ricePaste:'你绑稳灯骨，薄薄补好纸面。婆婆教的归舟歌已记进手记。',oldParcel:'婆婆接过迟到的包裹，把标好的送灯路线图放进你的背包。'};
+      return talk([{text:messages[id]||'道具已经使用。'}],()=>changed('道具已使用 · 背包已更新'));
+    }
+    const hints={unlit:'灯芯是干的。需要在背包中选择能引燃它的道具。','wrong-chest':'这把钥匙不是开门用的。面向站台东端的维修箱，再试试看。','wrong-paste-table':'清水需要倒进米糊碗里。面向制灯铺的糨糊台再使用。','wrong-workbench':'先把旧灯放稳。面向制灯铺的修灯台，再使用材料。','wrong-recipient':'包裹的收件人是凪婆婆。面向她时，再亲手交出去。','missing-request':'先问问凪婆婆这盏灯的来历和修补方法。','missing-thread':'灯骨还没有绑稳。需要在回忆里找到红线。','missing-paste':'旧纸不能直接用水粘。还需要调好的米糊。','already':'这件事已经完成，不必重复消耗道具。','missing-item':'这件道具已经不在背包里了。'};
+    talk([{text:hints[result]||'现在还不能这样使用。试着换个位置，或调查附近的物件。'}]);
+  }
+  function showCG(id,replay=false){
+    const cg=CG[id];if(!cg||(!replay&&state.seen.includes('cg-'+id)))return;
+    if(!state.seen.includes('cg-'+id))state.seen.push('cg-'+id);save();
+    openModal(cg.title,'A LIGHT KEPT IN MEMORY','cg',`<figure class="cg-scene"><img src="${cg.image}" alt="${cg.title}"><figcaption>${cg.caption}</figcaption></figure><div class="modal-actions"><button id="cg-continue" class="button primary">返回探索 ⟶</button></div>`,true);
+    $('cg-continue').onclick=()=>closeModal();$('cg-continue').focus({preventScroll:true});
+  }
   function openJournal(tab = 'journey') {
     if (!state) return;
     $('journal-dot').hidden = true;
@@ -389,9 +439,11 @@
       body += bonds.map(([flag, name, text]) => `<article class="journal-entry ${state.flags[flag] ? '' : 'locked'}"><h3>${state.flags[flag] ? '✓ ' : '◇ '}${name}</h3><p>${state.flags[flag] ? '这份牵挂，已经被你接住了。' : text}</p></article>`).join('');
       if (state.solved.includes('tower')) { const missing = C.missingForDawn(state); body += `<div class="puzzle-clue"><span class="clue-label">最后一条路</span>${missing.length ? '你还可以：' + missing.join('；') + '。' : '所有回忆与约定已经齐备。你可以在渡灯桥叫出她的名字。'}</div>`; }
     }
-    if(tab==='journey'&&!state.flags.lantern&&C.hasItem(state,'guideLamp')&&C.hasItem(state,'dryMatches'))body+='<button id="use-matches" class="button primary">用防潮火柴点燃引灯</button>';
+    if(tab==='journey')body+='<button id="journal-bag" class="button quiet">打开背包，查看与使用道具</button>';
+    if(tab==='memories')body+=`<div class="cg-gallery">${Object.entries(CG).filter(([id])=>state.seen.includes('cg-'+id)||(id==='ignition'?state.flags.lantern:state.memories.includes('photo'))).map(([id,cg])=>`<button data-cg="${id}"><img src="${cg.image}" alt=""><span>${cg.title} · 回看</span></button>`).join('')}</div>`;
     openModal('澪的手记', 'NOTES FROM THE OTHER SIDE', 'journal', body);
-    if($('use-matches'))$('use-matches').onclick=()=>{closeModal();KiriExploration.run('light-lantern',state,{talk,changed});};
+    if($('journal-bag'))$('journal-bag').onclick=openBag;
+    $('modal-body').querySelectorAll('[data-cg]').forEach(button=>button.onclick=()=>showCG(button.dataset.cg,true));
     $('modal-body').querySelectorAll('[data-tab]').forEach(button => { button.onclick = () => { openJournal(button.dataset.tab); $('modal-body').querySelector(`[data-tab="${button.dataset.tab}"]`)?.focus({ preventScroll: true }); }; });
   }
   function openMap() {
@@ -405,7 +457,7 @@
   }
   function openSettings() {
     const hasManual = !!getSave(KEYS.manual);
-    const html = `<div class="body-copy"><p>这是一段可以慢慢走完的旅程。所有谜题都提供三层提示，试错不会失去物品。</p></div><div class="setting-row"><div><b>环境音乐</b><small>原创合成钟声与缓慢的钢琴音色。</small></div><button id="setting-sound">${S.enabled ? '已开启' : '已关闭'}</button></div><div class="setting-row"><div><b>对话直接显示</b><small>关闭逐字浮现；任意时刻也可按 E 显示全文。</small></div><button id="setting-text">${settings.instantText ? '已开启' : '已关闭'}</button></div><div class="setting-row"><div><b>漂浮光点</b><small>减少场景中的环境动画。</small></div><button id="setting-particles">${settings.particles ? '已开启' : '已关闭'}</button></div>${touchLayout.matches ? '<div class="help-grid"><div><kbd>方向按钮</kbd> 移动</div><div><kbd>调查</kbd> 靠近后交互</div><div><kbd>引灯</kbd> 现世 / 回忆</div><div><kbd>手记</kbd> 查看线索</div><div><kbd>地图</kbd> 前往旧地</div><div><kbd>×</kbd> 关闭窗口</div></div>' : '<div class="help-grid"><div><kbd>WASD / ↑↓←→</kbd> 移动</div><div><kbd>E / Enter</kbd> 调查、继续</div><div><kbd>Q</kbd> 现世 / 回忆</div><div><kbd>J</kbd> 澪的手记</div><div><kbd>M</kbd> 旧地图</div><div><kbd>Esc</kbd> 关闭窗口</div></div>'}<div class="body-copy"><p>点击地面可移动，点击人物或光点会自动走近并调查。手机可使用屏幕方向键。回忆中闪动的细小光点能找回故事片段。</p><p>进度会自动保存在当前浏览器。请用同一个地址和浏览器继续；清理网站数据会删除存档。</p></div>${state && screen === 'play' ? `<div class="modal-actions"><button class="subtle-button" id="load-manual" ${hasManual ? '' : 'disabled'}>读取手动存档</button><button id="save-manual" class="button primary">手动存档 ⟶</button></div>` : ''}`;
+    const html = `<div class="body-copy"><p>这是一段可以慢慢走完的旅程。所有谜题都提供三层提示，试错不会失去物品。</p></div><div class="setting-row"><div><b>环境音乐</b><small>原创合成钟声与缓慢的钢琴音色。</small></div><button id="setting-sound">${S.enabled ? '已开启' : '已关闭'}</button></div><div class="setting-row"><div><b>对话直接显示</b><small>关闭逐字浮现；任意时刻也可按 E 显示全文。</small></div><button id="setting-text">${settings.instantText ? '已开启' : '已关闭'}</button></div><div class="setting-row"><div><b>漂浮光点</b><small>减少场景中的环境动画。</small></div><button id="setting-particles">${settings.particles ? '已开启' : '已关闭'}</button></div>${touchLayout.matches ? '<div class="help-grid"><div><kbd>方向按钮</kbd> 移动</div><div><kbd>调查</kbd> 靠近后交互</div><div><kbd>引灯</kbd> 现世 / 回忆</div><div><kbd>背包</kbd> 使用道具</div><div><kbd>手记</kbd> 查看线索</div><div><kbd>地图</kbd> 前往旧地</div><div><kbd>×</kbd> 关闭窗口</div></div>' : '<div class="help-grid"><div><kbd>WASD / ↑↓←→</kbd> 移动</div><div><kbd>E / Enter</kbd> 调查、继续</div><div><kbd>Q</kbd> 现世 / 回忆</div><div><kbd>B</kbd> 背包道具</div><div><kbd>J</kbd> 澪的手记</div><div><kbd>M</kbd> 旧地图</div><div><kbd>Esc</kbd> 关闭窗口</div></div>'}<div class="body-copy"><p>点击地面可移动，点击人物或光点会自动走近并调查。手机可使用屏幕方向键。回忆中闪动的细小光点能找回故事片段。</p><p>进度会自动保存在当前浏览器。请用同一个地址和浏览器继续；清理网站数据会删除存档。</p></div>${state && screen === 'play' ? `<div class="modal-actions"><button class="subtle-button" id="load-manual" ${hasManual ? '' : 'disabled'}>读取手动存档</button><button id="save-manual" class="button primary">手动存档 ⟶</button></div>` : ''}`;
     openModal('旅途设置', 'MAKE YOURSELF AT HOME', 'settings', html);
     $('setting-sound').onclick = async () => { await toggleSound(); if (modalKind === 'settings') $('setting-sound').textContent = S.enabled ? '已开启' : '已关闭'; };
     $('setting-text').onclick = () => { settings.instantText = !settings.instantText; write(KEYS.settings, settings); $('setting-text').textContent = settings.instantText ? '已开启' : '已关闭'; };
@@ -477,6 +529,7 @@
   $('ending-rewind').onclick = rewind; $('ending-home').onclick = goHome;
   $('touch-interact').onclick = () => { updateNearest(); interact(nearest); };
   $('touch-phase').onclick = togglePhase;
+  $('bag-button').onclick=openBag;
   $('world').addEventListener('pointerdown', e => {
     if (e.target.closest('button') || modalKind || !$('dialogue').hidden || transitioning) return;
     const rect = $('world').getBoundingClientRect();
@@ -522,6 +575,7 @@
     if (key === 'e' || (key === 'enter' && document.activeElement?.tagName !== 'BUTTON')) { e.preventDefault(); updateNearest(); interact(nearest); }
     else if (key === 'q') { e.preventDefault(); togglePhase(); }
     else if (key === 'j') { e.preventDefault(); openJournal(); }
+    else if (key === 'b') { e.preventDefault(); openBag(); }
     else if (key === 'm') { e.preventDefault(); openMap(); }
     else if (key === 'escape') openSettings();
   });
@@ -552,15 +606,15 @@
           const direction=Move.direction(keys);
           if(direction){state.player.facing=direction.facing;const next={x:state.player.x+direction.dx,y:state.player.y+direction.dy};return M.walkable(state.zone,next.x,next.y,state.solved)?next:null;}
           if(route.length)return route.shift();
-          if(target){const object=pendingObject;clearTarget();if(object)interact(object);save();}
+          if(target){const object=pendingObject,facing=pendingFacing;clearTarget();if(object){state.player.facing=facing;updatePlayer(false);interact(object);}save();}
           return null;
         },()=>{
           updateNearest();const exit=visibleObjects().find(o=>o.mark==='exit'&&o.x===state.player.x&&o.y===state.player.y);
-          if(exit){interact(exit);return false;}return true;
+          if(exit){interact(exit,true);return false;}return true;
         });
       }
       const visual=Move.visual(motion,state.player),walking=motion.walking&&!modalKind&&$('dialogue').hidden&&!transitioning;
-      R.draw(state.zone, visual, now, state.phase,state.solved,state); updatePlayer(walking, visual); paintAtmosphere(now);
+      R.draw(state.zone, visual, now, state.phase,state.solved,state); updatePlayer(walking, visual);updateNearest();paintAtmosphere(now);
       if(movementSavePending&&!motion.walking){movementSavePending=false;save();}
       state.elapsed += dt; saveTick += dt; if (saveTick >= 12) { saveTick = 0; save(); }
     }

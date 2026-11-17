@@ -11,6 +11,8 @@
   const explorationImage=new Image();explorationImage.src='assets/exploration-props.png';
   const explorationCleared=new Image();explorationCleared.src='assets/exploration-props-cleared.png';
   const nativeFurniture={};for(const size of [32,48]){const sheet=new Image();sheet.src='assets/interior-native-'+size+'.png';nativeFurniture[size]=sheet;}
+  const nativeItems={};for(const size of [12,16]){const sheet=new Image();sheet.src='assets/item-icons-'+size+'.png';nativeItems[size]=sheet;}
+  const floorGrains=new Image();floorGrains.src='assets/shrine-library-materials.png';
   const woodGrain=new Image();woodGrain.src='assets/interior-wood-grain.png';
   const tatamiImage=new Image();tatamiImage.src='assets/tatami-mat.png';let tatamiBounds=null;
   const view = { tile: 48, x: 0, y: 0, width: 1, height: 1, zone: 'station' };
@@ -26,6 +28,16 @@
   let propNodes = [];
   const pavingCache=new Map(), contextPatterns=new WeakMap();
   const timberCache=new Map();
+  const quietFloorCache=new Map();
+  function quietFloorUnit(material,size){
+    const key=material+':'+size+':'+floorGrains.naturalWidth;if(quietFloorCache.has(key))return quietFloorCache.get(key);
+    const wood=material==='library-wood',unit=document.createElement('canvas');unit.width=size*(wood?6:4);unit.height=size*(wood?1:2);const p=unit.getContext('2d');p.imageSmoothingEnabled=false;
+    p.fillStyle=wood?'#6e5541':material==='tower-stone'?'#4f5a61':'#83877a';p.fillRect(0,0,unit.width,unit.height);
+    if(floorGrains.complete&&floorGrains.naturalWidth){const sw=floorGrains.naturalWidth/2;p.globalAlpha=wood?.24:.17;p.drawImage(floorGrains,wood?sw:0,0,sw,floorGrains.naturalHeight,0,0,unit.width,unit.height);p.globalAlpha=1;}
+    if(wood){const row=size/4;for(let y=0;y<unit.height;y+=row){p.fillStyle='rgba(28,22,19,.32)';p.fillRect(0,y,unit.width,1);p.fillStyle='rgba(218,193,153,.09)';p.fillRect(0,y+1,unit.width,1);for(let x=((y/row)%2)*size*1.5;x<unit.width;x+=size*3){p.fillStyle='rgba(28,22,19,.27)';p.fillRect(x,y,1,row);}}}
+    else{for(let row=0;row<2;row++){const y=row*size;p.fillStyle='rgba(28,36,36,.28)';p.fillRect(0,y,unit.width,1);p.fillStyle='rgba(219,222,203,.12)';p.fillRect(0,y+1,unit.width,1);for(let x=row*size;x<unit.width;x+=size*2){p.fillStyle='rgba(28,36,36,.28)';p.fillRect(x,y,1,size);}}}
+    quietFloorCache.set(key,unit);return unit;
+  }
   let dpr = 1;
   function resize() {
     const rect = document.getElementById('world').getBoundingClientRect();
@@ -68,6 +80,10 @@
     timberCache.set(size,unit);return unit;
   }
   function groundMaterial(map,index){
+    if(map.id==='shrine'&&map.materials[index]==='stone')return 'shrine-stone';
+    if(map.id==='archive'&&map.tiles[index]===31)return 'library-exit';
+    if(map.id==='archive'&&map.materials[index]==='wood')return 'library-wood';
+    if(map.id==='tower'&&map.materials[index]==='slate')return 'tower-stone';
     if(['station-office','town-workshop'].includes(map.id)){if(map.tiles[index]===31)return 'interior-exit';if(map.materials[index]==='wood')return 'timber';}
     return map.materials[index];
   }
@@ -83,9 +99,15 @@
     const b=tatamiBounds;map.tatami.forEach(mat=>pen.drawImage(tatamiImage,b.x,b.y,b.w,b.h,mat.x*size-originX,mat.y*size-originY,mat.width*size,mat.height*size));
   }
   function texture(pen, tile, x, y, size, material, originX=0,originY=0) {
-    if(material==='interior-exit'){
+    if(material==='shrine-stone'||material==='library-wood'||material==='tower-stone'){
+      let patterns=contextPatterns.get(pen);if(!patterns){patterns=new Map();contextPatterns.set(pen,patterns);}
+      const key=material+':'+size+':'+floorGrains.naturalWidth;
+      if(!patterns.has(key))patterns.set(key,pen.createPattern(quietFloorUnit(material,size),'repeat'));
+      const pattern=patterns.get(key);pattern.setTransform(new DOMMatrix().translate(-originX,-originY));pen.fillStyle=pattern;pen.fillRect(x,y,size,size);return;
+    }
+    if(material==='interior-exit'||material==='library-exit'){
       // Continue the room floor through a cutaway doorway, without the old black-backed tile.
-      texture(pen,4,x,y,size,'timber',originX,originY);
+      texture(pen,4,x,y,size,material==='library-exit'?'library-wood':'timber',originX,originY);
       const post=Math.max(1,Math.round(size/12)),sill=Math.max(2,Math.round(size/12));
       pen.fillStyle='#73563b';pen.fillRect(x,y,post,size);pen.fillRect(x+size-post,y,post,size);
       pen.fillStyle='#a28660';pen.fillRect(x+post,y+size-sill,size-post*2,sill);
@@ -126,6 +148,7 @@
     ctx.lineTo(fx+size*.075,fy+size*.025);ctx.lineTo(fx+size*.12,fy-size*.02);ctx.stroke();
   }
   function propFrame(prop,solved=[],progress={}){
+    if(prop.atlas==='items'){const size=view.tile===32?12:16;return {source:nativeItems[size],sprite:prop.sprite,native:true,nativeItem:true,rect:{x:prop.sprite%4*size,y:Math.floor(prop.sprite/4)*size,w:size,h:size}};}
     if(prop.grid){
       const art=root.KiriInteriorArt,variant=prop.completedFlag&&progress.flags?.[prop.completedFlag]?1:0,frame=art.sprites[prop.kind][variant];
       return {source:nativeFurniture[view.tile],sprite:variant,native:true,rect:{x:frame.col*art.cell*view.tile,y:frame.row*art.cell*view.tile,w:frame.w*view.tile,h:frame.h*view.tile}};
@@ -188,11 +211,13 @@
       furniture.replaceChildren();
       propNodes=map.props.map(prop=>{
         const node=document.createElement('canvas');node.className='scene-prop';node.dataset.prop=prop.id;
-        node.width=prop.grid?prop.grid.w*view.tile:256;node.height=prop.grid?prop.grid.h*view.tile:256;
+        node.width=prop.grid?prop.grid.w*view.tile:prop.atlas==='items'?(view.tile===32?12:16):256;node.height=prop.grid?prop.grid.h*view.tile:node.width;
+        if(prop.phase)node.classList.add('memory-prop');
+        if(prop.atlas==='items')node.style.transform='translate(-50%,-100%)';
         if(prop.grid){node.classList.add('grid-furniture');node.dataset.footprint=prop.grid.w+'x'+prop.grid.d;node.dataset.cellX=prop.grid.x;node.dataset.cellY=prop.grid.y;node.style.transform='none';}
         else node.style.setProperty('--prop-scale',prop.size);
         const pose=root.KiriMaps.attachmentPose(map.id,prop);
-        node.style.zIndex=String(prop.grid?depth(prop.grid.y+(prop.grid.d||1)-.92):pose?depth(pose.building.frontY-.92,1):depth(prop.y,-1));
+        node.style.zIndex=String(pose?depth(pose.building.frontY-.92,1):depth(root.KiriMaps.propGroundY(map.id,prop),prop.surfaceOn?1:prop.grid?0:-1));
         let thread=null;if(pose){thread=document.createElement('span');thread.className='roof-thread';thread.dataset.attachment=prop.attachment.building;thread.style.zIndex=node.style.zIndex;furniture.appendChild(thread);}
         furniture.appendChild(node);return {prop,node,thread,painted:null};
       });
@@ -204,11 +229,14 @@
     });
     propNodes.forEach(item=>{
       const {prop,node,thread}=item,frame=propFrame(prop,solved,progress),key=prop.atlas+'-'+frame.sprite+'-'+(frame.native?view.tile:frame.source===explorationCleared?'cleared':'original');
+      const visible=root.KiriCore.inPhase(progress,prop.phase);
+      if(visible&&node.hidden){node.classList.remove('revealed');void node.offsetWidth;node.classList.add('revealed');}node.hidden=!visible;if(thread)thread.hidden=!visible;if(!visible)return;
+      if(frame.nativeItem){if(node.width!==frame.rect.w){node.width=frame.rect.w;node.height=frame.rect.h;item.painted=null;}node.style.width=frame.rect.w+'px';node.style.height=frame.rect.h+'px';}
       if(prop.grid&&(node.width!==prop.grid.w*view.tile||node.height!==prop.grid.h*view.tile)){node.width=prop.grid.w*view.tile;node.height=prop.grid.h*view.tile;item.painted=null;}
       if(item.painted!==key&&frame.source.complete&&frame.source.naturalWidth){
         const {source,columns,rows,sprite}=frame,pen=node.getContext('2d');
         pen.imageSmoothingEnabled=false;pen.clearRect(0,0,node.width,node.height);
-        if(prop.grid)drawGridFrame(pen,frame,0,0,node.width,node.height);else{const sw=source.naturalWidth/columns,sh=source.naturalHeight/rows;pen.drawImage(source,(sprite%columns)*sw+4,Math.floor(sprite/columns)*sh+4,sw-8,sh-8,0,0,256,256);}item.painted=key;
+        if(prop.grid||frame.nativeItem)drawGridFrame(pen,frame,0,0,node.width,node.height);else{const sw=source.naturalWidth/columns,sh=source.naturalHeight/rows;pen.drawImage(source,(sprite%columns)*sw+4,Math.floor(sprite/columns)*sh+4,sw-8,sh-8,0,0,256,256);}item.painted=key;
       }
       if(prop.grid){const g=prop.grid;node.style.left=Math.round((g.x-view.x)*view.tile)+'px';node.style.top=Math.round((g.top-view.y)*view.tile)+'px';node.style.width=g.w*view.tile+'px';node.style.height=g.h*view.tile+'px';return;}
       const pose=root.KiriMaps.attachmentPose(map.id,prop),p=pose?project({x:pose.x-.5,y:pose.bottomY-.92}):project(prop);
@@ -292,8 +320,8 @@
         pen.drawImage(foliage,p.sprite%4*sw,Math.floor(p.sprite/4)*sh,sw,sh,(p.x+.5)*size-extent*.5,(p.y+.92)*size-extent*.96,extent,extent);
       }}));
     }
-    map.props.forEach(p=>{const pose=root.KiriMaps.attachmentPose(zone,p),g=p.grid;layers.push({z:g?depth(g.y+(g.d||1)-.92):pose?depth(pose.building.frontY-.92,1):depth(p.y,-1),draw:()=>{const frame=propFrame(p,solved,progress),{source,columns,rows,sprite}=frame;if(!source.complete||!source.naturalWidth)return;if(g){drawGridFrame(pen,frame,g.x*size,g.top*size,g.w*size,g.h*size,!!p.mount);return;}const sw=source.naturalWidth/columns,sh=source.naturalHeight/rows,extent=p.size*size,x=pose?pose.x:p.x+.5,y=pose?pose.bottomY:p.y+.92;pen.drawImage(source,sprite%columns*sw+4,Math.floor(sprite/columns)*sh+4,sw-8,sh-8,x*size-extent*.5,y*size-extent*.985,extent,extent);}});});
+    map.props.filter(p=>root.KiriCore.inPhase(progress,p.phase)).forEach(p=>{const pose=root.KiriMaps.attachmentPose(zone,p),g=p.grid;layers.push({z:pose?depth(pose.building.frontY-.92,1):depth(root.KiriMaps.propGroundY(zone,p),p.surfaceOn?1:g?0:-1),draw:()=>{const frame=propFrame(p,solved,progress),{source,columns,rows,sprite}=frame;if(!source.complete||!source.naturalWidth)return;if(g){drawGridFrame(pen,frame,g.x*size,g.top*size,g.w*size,g.h*size);return;}if(frame.nativeItem){const extent=p.size*size;drawGridFrame(pen,frame,(p.x+.5)*size-extent/2,(p.y+.92)*size-extent,extent,extent);return;}const sw=source.naturalWidth/columns,sh=source.naturalHeight/rows,extent=p.size*size,x=pose?pose.x:p.x+.5,y=pose?pose.bottomY:p.y+.92;pen.drawImage(source,sprite%columns*sw+4,Math.floor(sprite/columns)*sh+4,sw-8,sh-8,x*size-extent*.5,y*size-extent*.985,extent,extent);}});});
     layers.sort((a,b)=>a.z-b.z).forEach(layer=>layer.draw());
   }
-  root.KiriRenderer = { view, resize, draw, project, unproject, thumbnail, depth, assetsReady:()=>[image,foliage,mountedImage,worldProps,stoneGrain,stationKit,craneImage,explorationImage,explorationCleared,...Object.values(nativeFurniture),woodGrain,tatamiImage].every(i=>i.complete&&i.naturalWidth>0)&&!!root.KiriLighting?.assetsReady() };
+  root.KiriRenderer = { view, resize, draw, project, unproject, thumbnail, depth, assetsReady:()=>[image,foliage,mountedImage,worldProps,stoneGrain,stationKit,craneImage,explorationImage,explorationCleared,...Object.values(nativeFurniture),...Object.values(nativeItems),floorGrains,woodGrain,tatamiImage].every(i=>i.complete&&i.naturalWidth>0)&&!!root.KiriLighting?.assetsReady() };
 })(globalThis);
