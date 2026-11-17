@@ -33,7 +33,15 @@
     narrowWindow:{atlas:'decor',sprite:9,w:1,d:0,h:2,mount:'back-wall'},
     umbrellaStand:{atlas:'decor',sprite:10,w:1,d:1,h:2},
     coatRack:{atlas:'decor',sprite:11,w:2,d:0,h:1,mount:'back-wall'},
-    shrineAltar:{atlas:'shrineAltar',sprite:0,w:3,d:1,h:1,completedPuzzle:'shrine',completedSprite:1,focus:[.5,.42]}
+    shrineAltar:{atlas:'shrineAltar',sprite:0,w:3,d:1,h:1,completedPuzzle:'shrine',completedSprite:1,focus:[.5,.42]},
+    emaRack:{atlas:'shrineDecor',sprite:0,w:2,d:1,h:2},
+    waterBasin:{atlas:'shrineDecor',sprite:1,w:3,d:1,h:2},
+    stoneToro:{atlas:'shrineDecor',sprite:2,w:1,d:1,h:2},
+    shrineFox:{atlas:'shrineDecor',sprite:3,w:1,d:1,h:1},
+    hokora:{atlas:'shrineDecor',sprite:4,w:3,d:2,h:3},
+    saisen:{atlas:'shrineDecor',sprite:5,w:2,d:1,h:1},
+    omikuji:{atlas:'shrineDecor',sprite:6,w:2,d:1,h:2},
+    torii:{atlas:'shrineDecor',sprite:7,w:3,d:1,h:3}
   };
   function place(map,id,kind,x,y){
     const def=catalog[kind];if(!def)throw new Error('Unknown furniture: '+kind);

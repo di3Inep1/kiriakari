@@ -28,7 +28,11 @@
     shrine: { name: '月见神社', reading: 'TSUKIMI SHRINE', sub: '月落之时，归舟将至。', atlas: [0, 1], spawn: [50, 79], links: ['town'],
       objects: [
         { id: 'lanterns', name: '归舟祭灯台', x: 51, y: 46, support:'shrine-altar', action: 'puzzle-shrine', mark: 'puzzle' },
-        { id: 'mural', name: '被雨洗去的绘马', x: 24, y: 55, action: 'lanternOrder', mark: 'inspect' },
+        {id:'purification',name:'手水钵',support:'purification-basin',action:'shrine-water',mark:'inspect',sceneText:'石钵里的水很清，竹勺还搭在原处。有人把几片落叶拨到了一旁。\n左侧的绘马架上，似乎也挂着祭典那夜留下的东西。'},
+        {id:'guardian',name:'石狐像',support:'west-guardian',action:'shrine-guardian',mark:'inspect',sceneText:'石狐胸前的红围布已经褪色，石座却擦得很干净。小小的脚印从参道旁绕了过去。'},
+        {id:'small-shrine',name:'林边小祠',support:'east-hokora',action:'shrine-hokora',mark:'inspect',sceneText:'小祠的注连绳换过许多次，木门上的雨痕却一年比一年深。\n供台上留下了一只空碟，像是有人刚来过。'},
+        {id:'fortunes',name:'结签架',support:'fortune-rack',action:'shrine-fortunes',mark:'inspect',sceneText:'细绳上结满了旧签。纸角写着「愿归舟的人，都找到回家的路」。\n中央祭灯台上的四种图案，也出现在几张旧签里。'},
+        { id: 'mural', name: '被雨洗去的绘马', x: 24, y: 55, support:'ema-rack', action: 'lanternOrder', mark: 'inspect' },
         { id: 'shrine-shiori', name: '栞的身影', label: '回声', x: 69, y: 60, phase: 'echo', character: 1, action: 'shrine-shiori' },
         { id: 'to-town', name: '返回灯见街', x: 50, y: 84, action: 'go-town', mark: 'exit' }
       ] },
@@ -97,7 +101,7 @@
     town: root.KiriMaps.maps.town.anchors,
     'station-office':root.KiriMaps.maps['station-office'].anchors,
     'town-workshop':root.KiriMaps.maps['town-workshop'].anchors,
-    shrine: { lanterns: [14,13], mural: [6,12], 'shrine-shiori': [19,15], 'to-town': [14,22] },
+    shrine: { lanterns: [14,13], mural: [6,12], purification:[7,17],guardian:[11,10],'small-shrine':[21,11],fortunes:[21,17], 'shrine-shiori': [19,15], 'to-town': [14,22] },
     archive: { records: [13,5], ledger: [7,14], tape: [19,15], 'to-tower': [23,5], 'to-town': [13,20] },
     tower: { gears: [12,7], marks: [6,12], 'tower-shiori': [17,13], 'to-archive': [6,20], 'to-river': [20,18] },
     river: { names: [11,5], 'river-shiori': [26,11], 'to-town': [2,11], 'to-tower': [33,11] }

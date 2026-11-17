@@ -10,9 +10,10 @@
   const craneImage=new Image();craneImage.src='assets/hanging-crane.png';
   const explorationImage=new Image();explorationImage.src='assets/exploration-props.png';
   const explorationCleared=new Image();explorationCleared.src='assets/exploration-props-cleared.png';
-  const nativeFurniture={};for(const size of [32,48]){const sheet=new Image();sheet.src='assets/interior-native-'+size+'.png?v=shrine-20261117';nativeFurniture[size]=sheet;}
+  const nativeFurniture={};for(const size of [32,48]){const sheet=new Image();sheet.src='assets/interior-native-'+size+'.png?v=shrine-architecture-20261117';nativeFurniture[size]=sheet;}
   const nativeItems={};for(const size of [12,16]){const sheet=new Image();sheet.src='assets/item-icons-'+size+'.png';nativeItems[size]=sheet;}
   const floorGrains=new Image();floorGrains.src='assets/shrine-library-materials.png';
+  const shrineHalls={};for(const size of [32,48]){const sheet=new Image();sheet.src='assets/shrine-hall-native-'+size+'.png';shrineHalls[size]=sheet;}
   const shrinePaving={},shrineFringe={};for(const size of [32,48]){const sheet=new Image();sheet.src='assets/shrine-paving-v2-native-'+size+'.png';shrinePaving[size]=sheet;const edge=new Image();edge.src='assets/shrine-fringe-native-'+size+'.png';shrineFringe[size]=edge;}
   const woodGrain=new Image();woodGrain.src='assets/interior-wood-grain.png';
   const tatamiImage=new Image();tatamiImage.src='assets/tatami-mat.png';let tatamiBounds=null;
@@ -276,11 +277,12 @@
     pen.drawImage(frame.source,r.x,r.y,r.w,r.h,x,y,width,height);
   }
   function paintBuilding(pen,map,b,size,originX,originY){
+    if(b.kind==='shrineHall'){const source=shrineHalls[view.tile];if(source.naturalWidth)pen.drawImage(source,b.x*size-originX,b.y*size-originY,b.width*size,b.height*size);return;}
     for(let y=b.eaveY;y<b.frontY;y++)for(let x=b.x;x<b.x+b.width;x++)texture(pen,map.tiles[y*map.w+x],x*size-originX,y*size-originY,size,'object');
     drawBuildings(pen,{buildings:[b]},size,originX,originY);
   }
   function drawBuildingLayer(map,phase){
-    const size=view.tile,key=map.id+':'+size+':'+phase;
+    const size=view.tile,key=map.id+':'+size+':'+phase+':'+(shrineHalls[size].naturalWidth||0);
     if(key!==buildingKey){
       buildingKey=key;buildings.replaceChildren();
       buildingNodes=map.buildings.map(b=>{
@@ -371,5 +373,5 @@
     map.props.filter(p=>root.KiriCore.inPhase(progress,p.phase)).forEach(p=>{const pose=root.KiriMaps.attachmentPose(zone,p),g=p.grid;layers.push({z:pose?depth(pose.building.frontY-.92,1):depth(root.KiriMaps.propGroundY(zone,p),p.surfaceOn?1:g?0:-1),draw:()=>{const frame=propFrame(p,solved,progress),{source,columns,rows,sprite}=frame;if(!source.complete||!source.naturalWidth)return;if(g){drawGridFrame(pen,frame,g.x*size,g.top*size,g.w*size,g.h*size);return;}if(frame.nativeItem){const extent=p.size*size,surface=root.KiriMaps.surfacePose(zone,p),x=(surface?surface.x+.5:p.x+.5)*size,y=(surface?surface.y+.92:p.y+.92)*size;drawGridFrame(pen,frame,x-extent/2,y-(surface?extent/2:extent),extent,extent);return;}const sw=source.naturalWidth/columns,sh=source.naturalHeight/rows,extent=p.size*size,x=pose?pose.x:p.x+.5,y=pose?pose.bottomY:p.y+.92;pen.drawImage(source,sprite%columns*sw+4,Math.floor(sprite/columns)*sh+4,sw-8,sh-8,x*size-extent*.5,y*size-extent*.985,extent,extent);}});});
     layers.sort((a,b)=>a.z-b.z).forEach(layer=>layer.draw());
   }
-  root.KiriRenderer = { view, resize, draw, project, unproject, thumbnail, depth, assetsReady:()=>[image,foliage,mountedImage,worldProps,stoneGrain,stationKit,craneImage,explorationImage,explorationCleared,...Object.values(nativeFurniture),...Object.values(nativeItems),...Object.values(shrinePaving),...Object.values(shrineFringe),floorGrains,woodGrain,tatamiImage].every(i=>i.complete&&i.naturalWidth>0)&&!!root.KiriLighting?.assetsReady() };
+  root.KiriRenderer = { view, resize, draw, project, unproject, thumbnail, depth, assetsReady:()=>[image,foliage,mountedImage,worldProps,stoneGrain,stationKit,craneImage,explorationImage,explorationCleared,...Object.values(nativeFurniture),...Object.values(nativeItems),...Object.values(shrinePaving),...Object.values(shrineFringe),...Object.values(shrineHalls),floorGrains,woodGrain,tatamiImage].every(i=>i.complete&&i.naturalWidth>0)&&!!root.KiriLighting?.assetsReady() };
 })(globalThis);

@@ -94,6 +94,12 @@ test('shrine altar has three solid, investigable cells and safely restores old f
   const saved=C.newGame();saved.flags.lantern=true;saved.solved=['station'];saved.zone='shrine';saved.player={x:13,y:13,facing:0};
   const restored=C.restore(saved);assert.equal(M.walkable('shrine',restored.player.x,restored.player.y),true);assert.deepEqual(restored.solved,['station']);
 });
+test('shrine torii posts block walking while the central approach remains open',()=>{
+  assert.equal(M.walkable('shrine',13,20),false);assert.equal(M.walkable('shrine',15,20),false);assert.equal(M.walkable('shrine',14,20),true);
+  const path=M.findPath('shrine',{x:14,y:22},{x:14,y:19});assert.ok(path.some(p=>p.x===14&&p.y===20));
+  assert.equal(M.maps.shrine.tiles.includes(56),false,'The old repeated bench row is removed');
+  assert.equal(M.maps.shrine.buildings.find(b=>b.id==='shrine-haiden').kind,'shrineHall');
+});
 test('station exit is physically gated and opens only after the station puzzle',()=>{
   const map=M.maps.station,from={x:map.spawn[0],y:map.spawn[1]},exit=map.anchors['to-town'];
   assert.equal(M.findPath('station',from,{x:exit[0],y:exit[1]}).length,0);

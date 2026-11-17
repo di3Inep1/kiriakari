@@ -145,11 +145,15 @@ async function main() {
     assert.deepEqual(errors,[]);console.log('Backpack native icons, 320/390/844px layout, actual mobile item use, direct indoor lighting, CG replay and reduced motion passed');await send('Browser.close');return;
   }
   if(process.argv.includes('--chapter-preview')){
+    if(process.argv.includes('--shrine-overview'))await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1320,deviceScaleFactor:1,mobile:false});
     for(const zone of ['shrine','archive','tower']){
       await send('Page.navigate',{url:base});await waitFor('!!window.KiriExploration');
-      await evaluate(`(()=>{const s=KiriCore.newGame();KiriCore.setFlag(s,'lantern');const answers={station:[0,7,1,6],shrine:['moon','mountain','river','boat'],archive:['letter','lantern','gate','bell']};for(const id of ${JSON.stringify(zone==='shrine'?['station']:zone==='archive'?['station','shrine']:['station','shrine','archive'])})KiriCore.solvePuzzle(s,id,answers[id]);s.zone=${JSON.stringify(zone)};s.player={x:KiriMaps.maps[s.zone].spawn[0],y:KiriMaps.maps[s.zone].spawn[1],facing:3};localStorage.setItem('kiriakari.save.v1',JSON.stringify(s));})()`);
+      await evaluate(`(()=>{const s=KiriCore.newGame();KiriCore.setFlag(s,'lantern');const answers={station:[0,7,1,6],shrine:['moon','mountain','river','boat'],archive:['letter','lantern','gate','bell']};for(const id of ${JSON.stringify(zone==='shrine'?['station']:zone==='archive'?['station','shrine']:['station','shrine','archive'])})KiriCore.solvePuzzle(s,id,answers[id]);s.zone=${JSON.stringify(zone)};s.player={x:KiriMaps.maps[s.zone].spawn[0],y:s.zone==='shrine'?11:KiriMaps.maps[s.zone].spawn[1],facing:3};localStorage.setItem('kiriakari.save.v1',JSON.stringify(s));})()`);
       await send('Page.reload');await waitFor("!!window.KiriExploration && !document.getElementById('continue-game').disabled");await click('#continue-game');await waitFor(`document.getElementById('world').dataset.zone===${JSON.stringify(zone)}`);await waitFor('KiriRenderer.assetsReady()');await pause(700);await screenshot('preview-'+zone+'-floor.png');
       if(zone==='shrine'){
+        if(process.argv.includes('--shrine-overview')){await evaluate("document.getElementById('world').style.height='960px';KiriRenderer.resize()");await pause(300);await screenshot('preview-shrine-overview.png');await evaluate("document.getElementById('world').style.height=''");await pause(200);}
+        for(const id of ['purification','guardian','small-shrine','fortunes']){await object(id);assert.equal(await evaluate(`document.querySelector('#object-${id} .object-marker').hidden`),true,'Read shrine scenery stops sparkling');}
+        assert.equal(await evaluate("(()=>{const c=document.querySelector('[data-building=shrine-haiden]');return !!c&&c.getContext('2d').getImageData(0,0,c.width,c.height).data.some((v,i)=>i%4===3&&v>100);})()"),true,'New haiden paints after its image loads');
         assert.equal(await evaluate(`(()=>{const s=JSON.parse(localStorage.getItem('kiriakari.save.v1')),r=KiriRenderer,c=document.getElementById('tile-map'),p=c.getContext('2d'),ratio=c.width/r.view.width;
           const sample=(x,y,playerY)=>{r.draw('shrine',{x:14,y:playerY},0,s.phase,s.solved,s);return [...p.getImageData(Math.round((x-r.view.x)*r.view.tile*ratio)-8,Math.round((y-r.view.y)*r.view.tile*ratio)-8,16,16).data].join(',');};
           const stable=[[8.5,10,12],[23,15.5,14],[8.5,22,16],[5,15.5,14]].every(([x,y,py])=>sample(x,y,py)===sample(x,y,py+1));r.draw('shrine',s.player,0,s.phase,s.solved,s);return stable;})()`),true,'All four moss borders stay fixed to the ground while the camera moves');
@@ -427,7 +431,7 @@ async function main() {
   console.log(JSON.stringify(report, null, 2));
   await send('Browser.close').catch(() => {});
 }
-main().catch(err => { console.error(err); process.exitCode = 1; }).finally(async () => {
+main().catch(err => { console.error(err,errors); process.exitCode = 1; }).finally(async () => {
   if (ws?.readyState === WebSocket.OPEN) ws.close();
   if (chrome && chrome.exitCode === null) chrome.kill();
   if (server) server.closeAllConnections?.();

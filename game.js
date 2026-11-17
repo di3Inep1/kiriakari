@@ -111,7 +111,7 @@
       let solved = false;
       if (obj.action.startsWith('puzzle-')) solved = state.solved.includes(obj.action.slice(7));
       el.classList.toggle('solved', solved);
-      const collected=state.memories.includes(obj.action)||KiriExploration.isComplete(state,obj);
+      const collected=state.memories.includes(obj.action)||KiriExploration.isComplete(state,obj)||(!!obj.sceneText&&state.seen.includes(obj.action));
       el.classList.toggle('collected', collected);
       el.classList.toggle('read', state.clues.includes(obj.action));
       const marker = solved ? '✓' : (obj.character !== undefined ? '···' : obj.mark === 'memory' ? '✧' : obj.mark === 'exit' ? '↗' : obj.mark === 'puzzle' ? '◇' : '·');
@@ -205,6 +205,7 @@
     if(!visibleObjects().some(o=>o.id===obj.id))return;
     keys.clear(); clearTarget(); S.click();
     const action = obj.action;
+    if(obj.sceneText)return talk([{text:obj.sceneText}],()=>{if(!state.seen.includes(action))state.seen.push(action);changed();});
     if (action.startsWith('go-')) return changeZone(action.slice(3));
     if (action.startsWith('puzzle-')) return openPuzzle(action.slice(7));
     if (KiriExploration.run(action,state,{talk,changed}))return;
