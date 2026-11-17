@@ -162,6 +162,14 @@ test('Ren supplies practical hints and never takes over the player lighting acti
   C.explore(s,'open-toolbox');speak(1);assert.equal(!!s.flags.lantern,false);assert.equal(C.hasItem(s,'dryMatches'),true);
   speak(0);assert.equal(!!s.flags.lantern,false);assert.equal(C.hasItem(s,'dryMatches'),true);assert.equal(!!s.flags.promisedRen,false);
 });
+test('pickup glints finish from persistent quest flags rather than remaining inventory',()=>{
+  const fs=require('node:fs'),vm=require('node:vm'),sandbox={KiriCore:C,KiriData:{}};vm.runInNewContext(fs.readFileSync(require.resolve('../exploration.js'),'utf8'),sandbox);const done=(s,action)=>sandbox.KiriExploration.isComplete(s,{action}),s=C.newGame();
+  for(const id of ['old-lantern','parcel','toolbox','basket','workbench','lighting-table','paste-table','well','duty-log'])assert.equal(done(s,id),false);
+  s.flags.lampFound=s.flags.parcelTaken=s.flags.matchesFound=s.flags.threadTaken=true;
+  for(const id of ['old-lantern','parcel','toolbox','basket'])assert.equal(done(s,id),true);
+  const restored=C.restore(JSON.parse(JSON.stringify(s)));for(const id of ['old-lantern','parcel','toolbox','basket'])assert.equal(done(restored,id),true);assert.equal(done(restored,'duty-log'),false);
+  const legacy=C.newGame();C.setFlag(legacy,'lantern');C.setFlag(legacy,'helpedNagi');legacy.flags.parcelDelivered=true;for(const id of ['old-lantern','parcel','toolbox','basket','workbench','lighting-table','paste-table','well'])assert.equal(done(legacy,id),true);
+});
 test('keyboard investigation targets only the facing cell and includes complete furniture footprints',()=>{
   const object={x:9,y:9};for(const [x,y,facing] of [[9,8,0],[10,9,1],[8,9,2],[9,10,3]]){assert.equal(M.canInvestigate('station',{x,y,facing},object),true);assert.equal(M.canInvestigate('station',{x,y,facing:(facing+1)%4},object),false);}
   assert.equal(M.canInvestigate('station',{x:8,y:8,facing:0},object),false);
@@ -171,6 +179,7 @@ test('echo photo and crane are separate phase-gated art, while the bench stays e
   const photo=M.maps.station.props.find(p=>p.id==='memory-photo'),bench=M.maps.station.props.find(p=>p.id==='photo-bench'),crane=M.maps.town.props.find(p=>p.id==='eave-crane');
   assert.equal(photo.phase,'echo');assert.equal(photo.atlas,'items');assert.equal(crane.phase,'echo');assert.equal(bench.kind,'waitingBench');assert.equal(bench.phase,undefined);assert.equal(photo.x,5);assert.equal(bench.grid.w,3);
   assert.equal(photo.surfaceOn,bench.id);assert.equal(M.propGroundY('station',photo),M.propGroundY('station',bench));
+  const surface=M.surfacePose('station',photo);assert.ok(surface.x+.5>5&&surface.x+.5<5.5);assert.ok(surface.y+.92>9.4&&surface.y+.92<9.7);assert.deepEqual(M.focusPoint('station',{support:photo.id}),surface);assert.deepEqual(M.interactionCells('station',{support:photo.id}),[{x:5,y:9}]);
   const s=C.newGame();assert.equal(C.inPhase(s,'present'),true);assert.equal(C.inPhase(s,'echo'),false);s.phase='echo';assert.equal(C.inPhase(s,'echo'),false);C.setFlag(s,'lantern');assert.equal(C.inPhase(s,'echo'),true);s.phase='present';assert.equal(C.inPhase(s,'echo'),false);
 });
 test('item use respects facing workstations, preserves materials on mistakes, and persists the hidden discovery',()=>{

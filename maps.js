@@ -32,7 +32,7 @@
   m.house(3,4,7,4,19,'station-office');m.put(11,8,43,true);
   m.prop('photo-bench',0,4,9,2.7,[[-1,0],[0,0],[1,0]]);
   Object.assign(m.props.at(-1),furniture.catalog.waitingBench,{kind:'waitingBench',grid:{x:3,y:9,w:3,d:1,h:1,top:9}});delete m.props.at(-1).size;
-  m.prop('memory-photo',8,5,9,.32);Object.assign(m.props.at(-1),{atlas:'items',phase:'echo',surfaceOn:'photo-bench'});
+  m.prop('memory-photo',8,5,9,.32);Object.assign(m.props.at(-1),{atlas:'items',phase:'echo',surfaceOn:'photo-bench',surfaceAnchor:[.72,.56]});
   m.prop('rail-buffer',3,11,5,1.3,[[0,0]]);Object.assign(m.props.at(-1),{atlas:'station'});
   [[12,8],[27,8],[21,16],[25,16]].forEach(([x,y])=>m.put(x,y,40,true));m.put(20,10,2,true);
   m.rect(0,13,32,1,58,true);m.rect(22,14,3,6,2);
@@ -158,6 +158,7 @@
   function frontCell(player){const [dx,dy]=FACING[player.facing]||FACING[0];return {x:player.x+dx,y:player.y+dy};}
   function interactionCells(zone,object){
     const prop=maps[zone].props.find(p=>p.id===object.support),g=prop?.grid;
+    if(prop?.surfaceOn){const p=surfacePose(zone,prop);if(p)return [{x:Math.floor(p.x+.5),y:Math.floor(p.y+.92)}];}
     if(g){const cells=[];for(let y=g.d?g.y:g.y+g.h-1;y<(g.d?g.y+g.d:g.y+g.h);y++)for(let x=g.x;x<g.x+g.w;x++)cells.push({x,y});return cells;}
     return prop?.cells||[{x:object.x,y:object.y}];
   }
@@ -183,10 +184,12 @@
   }
   function focusPoint(zone,object){
     const prop=maps[zone].props.find(p=>p.id===object.support),pose=prop&&attachmentPose(zone,prop);
+    const surface=prop&&surfacePose(zone,prop);if(surface)return surface;
     if(pose)return {x:pose.x-.5,y:pose.bottomY-.92-prop.size*.45};
     if(prop?.grid){const g=prop.grid,f=prop.focus||[.5,.4];return {x:g.x+g.w*f[0]-.5,y:g.top+g.h*f[1]-.92};}
     return {x:object.x+(object.focusOffset?.x||0),y:object.y+(object.focusOffset?.y||0)};
   }
   function propGroundY(zone,prop){const parent=prop.surfaceOn&&maps[zone].props.find(p=>p.id===prop.surfaceOn),g=prop.grid||parent?.grid;return g?g.y+(g.d||1)-.92:prop.y;}
-  return { LAYOUT_VERSION,maps,walkable,findPath,approach,nearestFloor,attachmentPose,focusPoint,frontCell,interactionCells,canInvestigate,propGroundY };
+  function surfacePose(zone,prop){const parent=prop.surfaceOn&&maps[zone].props.find(p=>p.id===prop.surfaceOn),g=parent?.grid;if(!g)return null;const [x,y]=prop.surfaceAnchor||[.5,.5];return {x:g.x+g.w*x-.5,y:g.top+g.h*y-.92};}
+  return { LAYOUT_VERSION,maps,walkable,findPath,approach,nearestFloor,attachmentPose,focusPoint,frontCell,interactionCells,canInvestigate,propGroundY,surfacePose };
 });

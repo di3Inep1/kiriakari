@@ -213,7 +213,7 @@
         const node=document.createElement('canvas');node.className='scene-prop';node.dataset.prop=prop.id;
         node.width=prop.grid?prop.grid.w*view.tile:prop.atlas==='items'?(view.tile===32?12:16):256;node.height=prop.grid?prop.grid.h*view.tile:node.width;
         if(prop.phase)node.classList.add('memory-prop');
-        if(prop.atlas==='items')node.style.transform='translate(-50%,-100%)';
+        if(prop.atlas==='items')node.style.transform=prop.surfaceOn?'translate(-50%,-50%)':'translate(-50%,-100%)';
         if(prop.grid){node.classList.add('grid-furniture');node.dataset.footprint=prop.grid.w+'x'+prop.grid.d;node.dataset.cellX=prop.grid.x;node.dataset.cellY=prop.grid.y;node.style.transform='none';}
         else node.style.setProperty('--prop-scale',prop.size);
         const pose=root.KiriMaps.attachmentPose(map.id,prop);
@@ -239,7 +239,7 @@
         if(prop.grid||frame.nativeItem)drawGridFrame(pen,frame,0,0,node.width,node.height);else{const sw=source.naturalWidth/columns,sh=source.naturalHeight/rows;pen.drawImage(source,(sprite%columns)*sw+4,Math.floor(sprite/columns)*sh+4,sw-8,sh-8,0,0,256,256);}item.painted=key;
       }
       if(prop.grid){const g=prop.grid;node.style.left=Math.round((g.x-view.x)*view.tile)+'px';node.style.top=Math.round((g.top-view.y)*view.tile)+'px';node.style.width=g.w*view.tile+'px';node.style.height=g.h*view.tile+'px';return;}
-      const pose=root.KiriMaps.attachmentPose(map.id,prop),p=pose?project({x:pose.x-.5,y:pose.bottomY-.92}):project(prop);
+      const pose=root.KiriMaps.attachmentPose(map.id,prop),surface=root.KiriMaps.surfacePose(map.id,prop),p=surface?project(surface):pose?project({x:pose.x-.5,y:pose.bottomY-.92}):project(prop);
       node.style.left=p.x+'px';node.style.top=p.y+'px';
       if(thread){const a=project({x:pose.x-.5,y:pose.threadY-.92});thread.style.left=a.x+'px';thread.style.top=a.y+'px';thread.style.height=Math.max(0,(pose.bottomY-prop.size*.5-pose.threadY)*view.tile)+'px';}
     });
@@ -320,7 +320,7 @@
         pen.drawImage(foliage,p.sprite%4*sw,Math.floor(p.sprite/4)*sh,sw,sh,(p.x+.5)*size-extent*.5,(p.y+.92)*size-extent*.96,extent,extent);
       }}));
     }
-    map.props.filter(p=>root.KiriCore.inPhase(progress,p.phase)).forEach(p=>{const pose=root.KiriMaps.attachmentPose(zone,p),g=p.grid;layers.push({z:pose?depth(pose.building.frontY-.92,1):depth(root.KiriMaps.propGroundY(zone,p),p.surfaceOn?1:g?0:-1),draw:()=>{const frame=propFrame(p,solved,progress),{source,columns,rows,sprite}=frame;if(!source.complete||!source.naturalWidth)return;if(g){drawGridFrame(pen,frame,g.x*size,g.top*size,g.w*size,g.h*size);return;}if(frame.nativeItem){const extent=p.size*size;drawGridFrame(pen,frame,(p.x+.5)*size-extent/2,(p.y+.92)*size-extent,extent,extent);return;}const sw=source.naturalWidth/columns,sh=source.naturalHeight/rows,extent=p.size*size,x=pose?pose.x:p.x+.5,y=pose?pose.bottomY:p.y+.92;pen.drawImage(source,sprite%columns*sw+4,Math.floor(sprite/columns)*sh+4,sw-8,sh-8,x*size-extent*.5,y*size-extent*.985,extent,extent);}});});
+    map.props.filter(p=>root.KiriCore.inPhase(progress,p.phase)).forEach(p=>{const pose=root.KiriMaps.attachmentPose(zone,p),g=p.grid;layers.push({z:pose?depth(pose.building.frontY-.92,1):depth(root.KiriMaps.propGroundY(zone,p),p.surfaceOn?1:g?0:-1),draw:()=>{const frame=propFrame(p,solved,progress),{source,columns,rows,sprite}=frame;if(!source.complete||!source.naturalWidth)return;if(g){drawGridFrame(pen,frame,g.x*size,g.top*size,g.w*size,g.h*size);return;}if(frame.nativeItem){const extent=p.size*size,surface=root.KiriMaps.surfacePose(zone,p),x=(surface?surface.x+.5:p.x+.5)*size,y=(surface?surface.y+.92:p.y+.92)*size;drawGridFrame(pen,frame,x-extent/2,y-(surface?extent/2:extent),extent,extent);return;}const sw=source.naturalWidth/columns,sh=source.naturalHeight/rows,extent=p.size*size,x=pose?pose.x:p.x+.5,y=pose?pose.bottomY:p.y+.92;pen.drawImage(source,sprite%columns*sw+4,Math.floor(sprite/columns)*sh+4,sw-8,sh-8,x*size-extent*.5,y*size-extent*.985,extent,extent);}});});
     layers.sort((a,b)=>a.z-b.z).forEach(layer=>layer.draw());
   }
   root.KiriRenderer = { view, resize, draw, project, unproject, thumbnail, depth, assetsReady:()=>[image,foliage,mountedImage,worldProps,stoneGrain,stationKit,craneImage,explorationImage,explorationCleared,...Object.values(nativeFurniture),...Object.values(nativeItems),floorGrains,woodGrain,tatamiImage].every(i=>i.complete&&i.naturalWidth>0)&&!!root.KiriLighting?.assetsReady() };

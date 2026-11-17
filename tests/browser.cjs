@@ -109,6 +109,16 @@ async function main() {
   await evaluate("Promise.all([...document.images].map(i=>i.decode().catch(()=>{})))"); await pause(700);
   await screenshot('preview-title.png');
   console.log('Title screenshot captured');
+  if(process.argv.includes('--pickup-glints-only')){
+    await evaluate(`(()=>{const s=KiriCore.newGame();s.zone='station-office';s.player={x:7,y:8,facing:3};localStorage.setItem('kiriakari.save.v1',JSON.stringify(s));})()`);
+    await send('Page.reload');await waitFor("!!window.KiriExploration && !document.getElementById('continue-game').disabled");await click('#continue-game');
+    const marker=async(id,hidden)=>{assert.equal(await evaluate(`document.querySelector('#object-${id} .object-marker').hidden`),hidden);if(hidden)assert.equal(await evaluate(`getComputedStyle(document.querySelector('#object-${id} .object-marker')).display`),'none');};
+    await marker('old-lantern',false);await marker('parcel',false);await object('old-lantern');await marker('old-lantern',true);await marker('parcel',false);await object('parcel');await marker('parcel',true);await marker('duty-log',false);
+    await object('old-lantern');await marker('old-lantern',true);await send('Page.reload');await waitFor("!!window.KiriExploration && !document.getElementById('continue-game').disabled");await click('#continue-game');
+    for(const id of ['old-lantern','parcel']){await evaluate(`document.getElementById('object-${id}').focus()`);await marker(id,true);}
+    await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await marker('old-lantern',true);await marker('parcel',true);await marker('duty-log',false);await waitFor('KiriRenderer.assetsReady()');await pause(350);await screenshot('preview-cleared-pickups.png');
+    assert.deepEqual(errors,[]);console.log('Uncollected glints, pickup completion, empty-container revisits, reload, focus and reduced motion passed');await send('Browser.close');return;
+  }
   if(process.argv.includes('--memory-preview')){
     for(const zone of ['station','town']){
       await send('Page.navigate',{url:base});await waitFor('!!window.KiriExploration');
@@ -117,6 +127,7 @@ async function main() {
       const prop=zone==='station'?'memory-photo':'eave-crane';assert.equal(await evaluate(`document.querySelector('[data-prop="${prop}"]').hidden`),true);await screenshot(zone==='station'?'preview-photo-present.png':'preview-crane-present.png');
       await click('#phase-button');await pause(1100);assert.equal(await evaluate(`document.querySelector('[data-prop="${prop}"]').hidden`),false);
       if(zone==='station')assert.equal(await evaluate("(()=>{const z=s=>+getComputedStyle(document.querySelector(s)).zIndex;return z('[data-prop=memory-photo]')>z('[data-prop=photo-bench]')&&z('#object-photo')>z('[data-prop=memory-photo]');})()"),true,'Photo and glint appear above the bench surface');
+      if(zone==='station')assert.equal(await evaluate("(()=>{const p=document.querySelector('[data-prop=memory-photo]').getBoundingClientRect(),b=document.querySelector('[data-prop=photo-bench]').getBoundingClientRect(),v=KiriRenderer.view,w=document.getElementById('world').getBoundingClientRect(),focus=KiriRenderer.project(KiriMaps.focusPoint('station',KiriData.zones.station.objects.find(o=>o.id==='photo')));return p.left>b.left+b.width*.5&&p.right<b.left+b.width*.9&&p.top>b.top+b.height*.25&&p.bottom<b.top+b.height*.85&&Math.abs(p.left+p.width/2-w.left-focus.x)<=1.1&&Math.abs(p.top+p.height/2-w.top-focus.y)<=1.1;})()"),true,'Photo stays inside the right seat, with the glint anchored to its center');
       else assert.equal(await evaluate("document.querySelector('.roof-thread').hidden"),false);
       await screenshot(zone==='station'?'preview-photo-memory.png':'preview-crane-memory.png');
       if(zone==='station'){const clip=await evaluate("(()=>{const r=document.getElementById('world').getBoundingClientRect(),p=KiriRenderer.project({x:5,y:9});return {x:Math.max(r.left+6,r.left+p.x-260),y:Math.max(r.top+6,r.top+p.y-145),width:600,height:350,scale:1};})()");await screenshot('preview-photo-detail.png',clip);}

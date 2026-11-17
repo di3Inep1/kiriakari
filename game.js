@@ -111,10 +111,11 @@
       let solved = false;
       if (obj.action.startsWith('puzzle-')) solved = state.solved.includes(obj.action.slice(7));
       el.classList.toggle('solved', solved);
-      el.classList.toggle('collected', state.memories.includes(obj.action));
+      const collected=state.memories.includes(obj.action)||KiriExploration.isComplete(state,obj);
+      el.classList.toggle('collected', collected);
       el.classList.toggle('read', state.clues.includes(obj.action));
       const marker = solved ? '✓' : (obj.character !== undefined ? '···' : obj.mark === 'memory' ? '✧' : obj.mark === 'exit' ? '↗' : obj.mark === 'puzzle' ? '◇' : '·');
-      el.innerHTML = `${obj.character !== undefined ? `<div class="actor"><div class="actor-shadow"></div><div class="sprite" style="background-position:${obj.character * 100 / 3}% 0%"></div></div>` : ''}<span class="object-marker"><span>${marker}</span></span><span class="object-label">${obj.name}</span>${obj.label ? `<span class="object-detail">${obj.label}</span>` : ''}`;
+      el.innerHTML = `${obj.character !== undefined ? `<div class="actor"><div class="actor-shadow"></div><div class="sprite" style="background-position:${obj.character * 100 / 3}% 0%"></div></div>` : ''}<span class="object-marker"${collected?' hidden':''}><span>${marker}</span></span><span class="object-label">${obj.name}</span>${obj.label ? `<span class="object-detail">${obj.label}</span>` : ''}`;
       el.addEventListener('click', e => { e.stopPropagation(); approach(obj); }); container.appendChild(el);
     });
     nearest = null; updatePlayer(false); updateNearest();

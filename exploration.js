@@ -4,6 +4,20 @@
   const C=root.KiriCore,D=root.KiriData;
   const itemNames={guideLamp:'引灯',lockerKey:'维修箱黄铜钥匙',dryMatches:'油纸包好的防潮火柴',redThread:'旧日的红线',waterJar:'一罐清水',ricePaste:'调好的米糊',oldParcel:'寄给制灯铺的旧包裹',routeCard:'婆婆标过的送灯路线图'};
   function inventory(state){return state.items.map(id=>id==='guideLamp'?`引灯（${state.flags.lantern?'已点亮，可按 Q 照见回忆':'熄灭，尚缺火种'}）`:itemNames[id]);}
+  function isComplete(state,obj){
+    const f=state.flags;
+    switch(obj.action||obj.id){
+      case 'old-lantern':return !!f.lampFound;
+      case 'parcel':return !!(f.parcelTaken||f.parcelDelivered);
+      case 'toolbox':return !!(f.matchesFound||f.lantern);
+      case 'basket':return !!(f.threadTaken||f.helpedNagi);
+      case 'lighting-table':return !!f.lantern;
+      case 'workbench':return !!f.helpedNagi;
+      case 'paste-table':return C.hasItem(state,'ricePaste')||!!f.helpedNagi;
+      case 'well':return C.hasItem(state,'waterJar')||C.hasItem(state,'ricePaste')||!!f.helpedNagi;
+      default:return false;
+    }
+  }
   function objectName(state,obj){
     const names={
       'old-lantern':state.flags.lampFound?'已经取空的引灯柜':'柜中的旧引灯',
@@ -95,5 +109,5 @@
     }
     return false;
   }
-  root.KiriExploration={run,inventory,tasks,objectName,itemNames};
+  root.KiriExploration={run,inventory,tasks,objectName,itemNames,isComplete};
 })(globalThis);
