@@ -114,9 +114,11 @@
     }
     if (!state.solved.includes('station')) return ['第一章 · 没有日期的车票', '按 Q 看见回忆，调查时刻表，解开检票闸门。'];
     if (!state.solved.includes('shrine')){
+      if(state.zone==='shrine')return ['第二章 · 归舟祭灯台',state.clues.includes('lanternOrder')?'归舟歌已记入手记。调查中央祭灯台，按歌里的顺序点亮四盏灯。':'调查参道西侧的绘马架，用引灯照见旧字，找出祭灯台的点灯顺序。'];
+      if(state.zone==='station'||state.zone==='station-office')return ['第二章 · 灯火记得归路','检票闸门已打开。沿南边出口前往灯见街；站房包裹与莲的约定仍可回来处理。'];
       if(!state.flags.nagiMet)return ['第二章 · 灯火记得归路','去主街找凪婆婆，了解制灯铺与神社的路；也可探索街边庭院。'];
-      if(state.flags.repairRequested&&!state.flags.helpedNagi)return ['第二章 · 断线的纸灯',!hasItem(state,'redThread')?'在东侧民居的针线篮寻找红线。现世看不见时，试试引灯。':!hasItem(state,'ricePaste')?(hasItem(state,'waterJar')?'把清水带进西侧制灯铺，在糨糊台调开米糊。':'到主街南边的石井取清水，再去制灯铺调糨糊。'):'带着红线和米糊找婆婆，或在制灯铺修灯。也可先去月见神社。'];
-      return ['第二章 · 灯火记得归路','婆婆教会了归舟歌。沿主街往北，到月见神社点亮四方灯阵。'];
+      if(state.zone==='town-workshop'&&state.flags.repairRequested&&!state.flags.helpedNagi)return ['第二章 · 断线的纸灯',!hasItem(state,'redThread')?'在东侧民居的针线篮寻找红线。现世看不见时，试试引灯。':!hasItem(state,'ricePaste')?(hasItem(state,'waterJar')?'把清水带到铺内的糨糊台，在背包中使用，或调查台上的米糊碗。':'到主街南边的石井取清水，再回铺内调开米糊。'):'红线与米糊已经备好。面向修灯台使用材料，或调查纸灯；也可稍后再来。'];
+      return ['第二章 · 灯火记得归路',state.clues.includes('lanternOrder')?'归舟歌已记下。沿主街往北，到月见神社调查祭灯台。':'沿主街往北进入月见神社。用引灯调查绘马架，寻找归舟歌；修灯可以稍后回来完成。'];
     }
     if (!state.solved.includes('archive')) return ['第三章 · 被划去的那一页', '前往旧校书库，重排祭典之夜的四份记录。'];
     if (!state.solved.includes('tower')) return ['第四章 · 第十三次钟声', '登上钟楼，读懂回忆里的刻痕，让时间重新流动。'];

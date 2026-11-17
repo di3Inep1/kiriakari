@@ -4,4 +4,5 @@ dist/
 Thumbs.db
 tests/.browser-profile*/
 tests/browser-report.json
+tests/ground-cache-report.json
 *.log

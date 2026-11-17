@@ -185,6 +185,8 @@
       state.zone = id; const zone = D.zones[id],arrival=D.zones[previousZone].parent===id?D.zones[previousZone].returnAt:zone.spawn; state.player = { x: arrival[0], y: arrival[1], facing: 0 };
       renderWorld(); renderHUD(); save(); $('transition').classList.remove('active'); transitioning = false; showSplash();
       $('world').focus({ preventScroll: true });
+      const arrivalStories={town:{id:'town-arrival',text:'街上的灯铺还留着姐姐熟悉的气味。西边有人守着一盏破纸灯，通往神社的参道在北面。\n先问清路，再往前走吧。'},shrine:{id:'shrine-arrival',text:'鸟居后的四盏祭灯都暗着。石狐守在参道两旁，西侧绘马架上，雨痕盖住了旧字。\n姐姐说过，灯火会记得人走过的路。'}};
+      const arrivalStory=arrivalStories[id];if(arrivalStory&&!state.solved.includes('shrine')&&!state.seen.includes(arrivalStory.id)){state.seen.push(arrivalStory.id);talk([{who:'mio',text:arrivalStory.text}],save);}
       if (id === 'river' && !state.seen.includes('river-intro')) {
         state.seen.push('river-intro');
         talk([{ who: 'mio', text: '雾散开了。桥的另一端，姐姐像七年前那样，提着一盏灯。\n我知道，这次她等的不是一句「救救我」。' }], save);
@@ -207,7 +209,7 @@
     if(!visibleObjects().some(o=>o.id===obj.id))return;
     keys.clear(); clearTarget(); S.click();
     const action = obj.action;
-    if(obj.sceneText)return talk([{text:obj.sceneText}],()=>{if(!state.seen.includes(action))state.seen.push(action);changed();});
+    if(obj.sceneText)return talk([{text:state.phase==='echo'&&D.sceneryEcho?.[action]||obj.sceneText}],()=>{if(!state.seen.includes(action))state.seen.push(action);changed();});
     if (action.startsWith('go-')) return changeZone(action.slice(3));
     if (action.startsWith('puzzle-')) return openPuzzle(action.slice(7));
     if (KiriExploration.run(action,state,{talk,changed}))return;
@@ -246,6 +248,7 @@
     ], () => { C.setFlag(state, 'heardShiori'); changed('听完了栞的心愿 · 去渡灯桥前，可继续寻找回忆'); });
   }
   function talk(lines, onEnd) {
+    clearTimeout(splashTimer);$('chapter-splash').hidden=true;
     stopDialogue(); keys.clear(); clearTarget(); updatePlayer(false);
     dialogueReturnFocus = document.activeElement;
     dialogueLines = lines; dialogueIndex = 0; dialogueEnd = onEnd || null;
@@ -394,7 +397,7 @@
     if(!state)return;
     if(typeof selected!=='string'||!state.items.includes(selected))selected=state.items[0];
     const meta=BAG[selected];
-    let body=`<p class="bag-intro">随身道具 · ${state.items.length} 件<span>先选择物品，再尝试使用。</span></p><div class="bag-layout"><div class="bag-grid" role="group" aria-label="随身物品">${state.items.map(id=>`<button class="bag-slot ${id===selected?'selected':''}" data-item="${id}" aria-pressed="${id===selected}">${itemIcon(id)}<span>${BAG[id].name}</span></button>`).join('')||'<p class="bag-empty">背包里只有姐姐的来信。沿途找到的道具会收在这里。</p>'}</div><section class="bag-detail">${meta?`${itemIcon(selected)}<h3>${meta.name}${selected==='guideLamp'?state.flags.lantern?' · 已点亮':' · 熄灭':''}</h3><p>${meta.description}</p><button id="bag-use" class="button primary" data-use-item="${selected}">${selected==='guideLamp'&&!state.flags.lantern?'检查灯芯':meta.verb}</button>`:'<h3>一封迟到的信</h3><p>「澪，钟响十三次以前，别忘了回家的路。」</p>'}</section></div>`;
+    let body=`<p class="bag-intro">随身道具 · ${state.items.length} 件<span>先选择物品，再尝试使用。</span></p><div class="bag-layout"><div class="bag-grid" role="group" aria-label="随身物品">${state.items.map(id=>`<button class="bag-slot ${id===selected?'selected':''}" data-item="${id}" aria-pressed="${id===selected}">${itemIcon(id)}<span>${BAG[id].name}</span></button>`).join('')||'<p class="bag-empty">背包里只有姐姐的来信。沿途找到的道具会收在这里。</p>'}</div><section class="bag-detail">${meta?`${itemIcon(selected)}<h3>${meta.name}${selected==='guideLamp'?state.flags.lantern?' · 已引燃':' · 熄灭':''}</h3><p>${meta.description}</p><button id="bag-use" class="button primary" data-use-item="${selected}">${selected==='guideLamp'&&!state.flags.lantern?'检查灯芯':meta.verb}</button>`:'<h3>一封迟到的信</h3><p>「澪，钟响十三次以前，别忘了回家的路。」</p>'}</section></div>`;
     body+=`<div class="bag-achievement ${state.flags.shelteredFlame?'unlocked':''}">${state.flags.shelteredFlame?'✧ 学会护火 · 在风中失败后，独自于室内点亮引灯。':'◇ 一段小小的发现，尚未记下。'}</div>`;
     openModal('澪的背包','THINGS CARRIED THROUGH THE FOG','bag',body,true);
     $('modal-body').querySelectorAll('[data-item]').forEach(button=>button.onclick=()=>{openBag(button.dataset.item);$('modal-body').querySelector('[data-item="'+button.dataset.item+'"]').focus({preventScroll:true});});

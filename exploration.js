@@ -3,7 +3,7 @@
   'use strict';
   const C=root.KiriCore,D=root.KiriData;
   const itemNames={guideLamp:'引灯',lockerKey:'维修箱黄铜钥匙',dryMatches:'油纸包好的防潮火柴',redThread:'旧日的红线',waterJar:'一罐清水',ricePaste:'调好的米糊',oldParcel:'寄给制灯铺的旧包裹',routeCard:'婆婆标过的送灯路线图'};
-  function inventory(state){return state.items.map(id=>id==='guideLamp'?`引灯（${state.flags.lantern?'已点亮，可按 Q 照见回忆':'熄灭，尚缺火种'}）`:itemNames[id]);}
+  function inventory(state){return state.items.map(id=>id==='guideLamp'?`引灯（${state.flags.lantern?'已留火种，可照见回忆':'熄灭，尚缺火种'}）`:itemNames[id]);}
   function isComplete(state,obj){
     const f=state.flags;
     switch(obj.action||obj.id){
@@ -30,7 +30,10 @@
   }
   function tasks(state){
     const list=[];
-    if(!state.flags.lantern)list.push(['点亮引灯',`${state.flags.lampFound?'✓':'◇'} 站房取灯 → ${C.hasItem(state,'lockerKey')?'✓':'◇'} 向莲借钥匙 → ${state.flags.matchesFound?'✓':'◇'} 东端维修箱找火柴 → 点燃引灯`]);
+    if(!state.flags.lantern)list.push(['点亮引灯',!state.flags.lampFound?'进入站房调查旧灯；值班簿与莲能帮助寻找火种。':!C.hasItem(state,'lockerKey')?'引灯已找到。向莲询问火种的去处。':!state.flags.matchesFound?'莲借出了黄铜钥匙。站台东端的维修箱里备有防潮用品。':state.flags.windTried?'火柴仍在背包里。找个没有穿堂风的室内，再试着点燃。':'火柴已收进背包。选择它，试着亲手点亮引灯。']);
+    if(state.flags.lantern&&!state.solved.includes('station'))list.push(['照见旧事',`${state.clues.includes('date')?'✓':'◇'} 回忆中的时刻表 · ${state.memories.includes('photo')?'✓':'◇'} 长椅上的合照（可回访）\n先读出祭典日期，再调查南侧检票闸门。`]);
+    if(state.solved.includes('station')&&!state.solved.includes('shrine'))list.push(['前往月见神社','主街向北是神社，西侧是制灯铺。修补纸灯与送包裹都可稍后完成；绘马架也留着点灯线索。']);
+    if(state.solved.includes('shrine'))list.push(['归舟灯阵 · 已完成','旧校书库已开放。未完成的包裹、纸灯与回忆仍可返回车站和灯见街寻找。']);
     if(state.flags.repairRequested&&!state.flags.helpedNagi)list.push(['修补纸灯 · 可稍后完成',`${state.flags.threadTaken?'✓':'◇'} 在回忆里找红线 · ${C.hasItem(state,'waterJar')||C.hasItem(state,'ricePaste')?'✓':'◇'} 石井取水 · ${C.hasItem(state,'ricePaste')?'✓':'◇'} 铺内调米糊；准备好后找婆婆，或在铺里的工作台修灯。`]);
     if(state.flags.helpedNagi)list.push(['修补纸灯 · 已完成','纸灯已经修好，婆婆教的归舟歌已记入线索。']);
     if(state.flags.parcelTaken)list.push(['迟到的包裹'+(state.flags.parcelDelivered?' · 已送达':''),state.flags.parcelDelivered?'婆婆收到了备用灯芯，并把送灯路线图交给你。':'站房里找到的包裹，收件人是灯见街的凪婆婆。']);
@@ -42,7 +45,7 @@
     const record=(id)=>()=>{C.addClue(state,id);changed('线索已记入手记 · '+D.clues[id].title);};
     const note=text=>talk([{text}]);
     const light=()=>{
-      if(state.flags.lantern)return note('引灯已经亮着。灯芯燃得很稳，不必再次消耗火种。');
+      if(state.flags.lantern)return note('灯芯已经留住火种。平时护成余烬，需要时再开启引灯，不必再次消耗火柴。');
       if(!state.flags.lampFound)return note('台上放着油壶和备用灯芯，火柴槽里只有用过的旧杆。西侧矮柜似乎还收着一盏灯。');
       if(!has('dryMatches'))return note('你检查了干燥的灯芯，仍然需要火种。值班簿提到站台东端的维修箱；莲保管着钥匙。');
       note('这张整灯台没有穿堂风，油壶和灯芯都备齐了。\n打开背包，选中防潮火柴，试着自己点亮引灯。');
@@ -98,13 +101,13 @@
       if(!state.flags.lantern&&!has('lockerKey')){talk([{who:'ren',text:'果然熄了。灯芯还好，缺的是干燥的火柴。拿这把黄铜钥匙，到站台最东端打开维修箱，油纸夹层里有备用火种。'},{who:'ren',text:'找到火柴后放进背包，自己试试看。那箱子别硬撬，里面的火柴怕潮。'}],apply('borrow-key','莲借出维修箱钥匙 · 去站台东端找火柴'));return true;}
       if(!state.flags.lantern&&has('dryMatches')){note(state.flags.windTried?'莲看了看被吹黑的火柴头：「站台的风从铁道那边灌来。木屋里应该安稳些，剩下的火柴先收好。」':'莲指了指你带着的油纸包：「东西都齐了。打开背包试试吧，灯芯很干，火会自己告诉你还缺什么。」');return true;}
       if(!state.flags.lantern){note('莲说：「钥匙已经借给你了。维修箱在站台最东端，那盏石灯旁边。取到火柴后，打开背包试着使用。」');return true;}
-      if(!state.flags.promisedRen){talk([{who:'ren',text:'引灯能照见旧事，却不能替你决定该记住谁。如果见到栞，请替我带句话：我们已经不害怕天亮了。',choices:[{text:'我答应你。天亮后，我们一起回去。',effect:()=>C.setFlag(state,'promisedRen'),reply:[{who:'ren',text:'谢谢。找不到路就来问我；灯不会再熄灭，也不需要再找火柴。'}]},{text:'我想先找到姐姐，再作答。',reply:[{who:'ren',text:'好，约定可以等。现在先按 Q 调查西边的时刻表，读出四位日期，再去南边的检票闸门。'}]}]}],()=>changed(state.flags.promisedRen?'约定已记下 · 莲不再独自等待':null));return true;}
+      if(!state.flags.promisedRen){talk([{who:'ren',text:'引灯能照见旧事，却不能替你决定该记住谁。如果见到栞，请替我带句话：我们已经不害怕天亮了。',choices:[{text:'我答应你。天亮后，我们一起回去。',effect:()=>C.setFlag(state,'promisedRen'),reply:[{who:'ren',text:'谢谢。找不到路就来问我。火种已经留在灯芯里了；平时护成一点余烬，需要时再让它照亮旧事。'}]},{text:'我想先找到姐姐，再作答。',reply:[{who:'ren',text:'好，约定可以等。现在先按 Q 调查西边的时刻表，读出四位日期，再去南边的检票闸门。'}]}]}],()=>changed(state.flags.promisedRen?'约定已记下 · 莲不再独自等待':null));return true;}
       note(state.solved.includes('tower')?'莲握紧帽檐：「钟又开始走了。我会和婆婆替你们照亮归路，你去渡灯桥见她。」':!state.solved.includes('station')?'莲说：「按 Q 后看西边时刻表的背面。日期按月、月、日、日写成四位，再去南边的检票闸门。长椅的旧照片也别落下。」':!state.flags.parcelTaken?'莲想起站房的寄物架：「那包灯芯是寄给灯见街凪婆婆的。你若顺路，就带去吧。她做的灯，照过很多人回家的路。」':'莲说：「出站后沿主街走，凪婆婆就在西侧灯铺附近。北边是神社，东边是书库；被雾拦住时，先看看手记里缺哪一道机关。」');return true;
     }
     if(action==='nagi'){
       if(!state.flags.nagiMet){talk([{who:'nagi',text:'澪？引灯又亮了……栞小时候也提着它跑过这条街。你肯先帮婆婆看看这盏破灯吗？灯铺在西侧，材料散在街边。'},{who:'nagi',text:'灯骨要用红线绑稳，破纸要用米糊补好。东边民居的针线篮留着红线；石井在主街南边，取清水到铺里调米糊。',choices:[{text:'我去找材料。也请您说说姐姐的事。',reply:[{who:'nagi',text:'好，路不急着赶完。找到东西就回来问，我会告诉你还缺什么。'}]},{text:'我想先知道去姐姐那里的路。',reply:[{who:'nagi',text:'沿主街向北去月见神社，绘马会教你归舟歌。修灯可以稍后再做，婆婆一直在这里。'}]}]}],apply('meet-nagi','婆婆说明了修灯材料 · 请求已记入手记'));return true;}
       if(has('oldParcel')&&!state.flags.parcelDelivered){talk([{who:'nagi',text:'这是站房留下的包裹？是栞给灯铺订的备用灯芯。那天谁都顾着送人，竟没能把它送到。'},{text:'你把旧包裹交给婆婆。她抚平纸角，把标过位置的送灯路线图递给你。'},{who:'nagi',text:'北边神社、东边书库、再往后的钟楼——我把顺序标好了。灯芯我会留给回来的人。修灯材料若没找齐，再问我。'}],apply('deliver-parcel','旧包裹已送达 · 获得送灯路线图'));return true;}
-      if(state.flags.helpedNagi){note(state.solved.includes('tower')?'婆婆把修好的纸灯提起来：「这一次，谁都不用独自撑住一整个夜晚。你去见她，我们会到桥上等你。」':'婆婆说：「归舟歌已写进你的手记：月、山、川、舟。沿主街向北就到神社。东侧屋檐的纸鹤也藏着栞的一段心愿，记得用引灯照照。」');return true;}
+      if(state.flags.helpedNagi){note(state.solved.includes('shrine')&&!state.solved.includes('tower')?'婆婆指向主街东边：「神社的灯已经应了。沿街去旧校书库吧；没送完的东西、没补好的灯，我们还会替你留着。」':state.solved.includes('tower')?'婆婆把修好的纸灯提起来：「这一次，谁都不用独自撑住一整个夜晚。你去见她，我们会到桥上等你。」':'婆婆说：「归舟歌已写进你的手记：月、山、川、舟。沿主街向北就到神社。东侧屋檐的纸鹤也藏着栞的一段心愿，记得用引灯照照。」');return true;}
       repair();return true;
     }
     return false;

@@ -167,6 +167,13 @@ test('restoring a partially recorded quest recovers its unique unspent materials
   const r=C.restore(s);for(const item of ['guideLamp','dryMatches','redThread','oldParcel'])assert.equal(C.hasItem(r,item),true);
   r.items.push('foreign-item','redThread');const again=C.restore(r);assert.equal(again.items.includes('foreign-item'),false);assert.equal(again.items.filter(id=>id==='redThread').length,1);
 });
+test('opening objectives follow the scene without claiming an unlearned song',()=>{
+  const s=C.newGame();C.setFlag(s,'lantern');C.solvePuzzle(s,'station',solutions.station);s.flags.nagiMet=s.flags.repairRequested=true;s.zone='town';
+  assert.match(C.objective(s)[1],/神社/);assert.doesNotMatch(C.objective(s)[1],/婆婆教会/);
+  s.zone='shrine';assert.match(C.objective(s)[1],/绘马/);C.addClue(s,'lanternOrder');assert.match(C.objective(s)[1],/祭灯台/);
+  s.zone='town-workshop';assert.match(C.objective(s)[1],/红线/);
+  s.zone='station';assert.match(C.objective(s)[1],/南边出口/);
+});
 test('Ren supplies practical hints and never takes over the player lighting action',()=>{
   const fs=require('node:fs'),vm=require('node:vm'),sandbox={KiriCore:C,KiriData:{}};vm.runInNewContext(fs.readFileSync(require.resolve('../exploration.js'),'utf8'),sandbox);
   const s=C.newGame(),speak=(choice=0)=>sandbox.KiriExploration.run('ren',s,{changed(){},talk(lines,end){for(const line of lines){if(line.choices)line.choices[choice].effect?.();}end?.();}});

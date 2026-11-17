@@ -109,6 +109,23 @@ async function main() {
   await evaluate("Promise.all([...document.images].map(i=>i.decode().catch(()=>{})))"); await pause(700);
   await screenshot('preview-title.png');
   console.log('Title screenshot captured');
+  if(process.argv.includes('--route-links')){
+    await evaluate("(()=>{const s=KiriCore.newGame();KiriCore.setFlag(s,'lantern');KiriCore.solvePuzzle(s,'station',[0,7,1,6]);s.player={x:23,y:18,facing:0};localStorage.setItem('kiriakari.save.v1',JSON.stringify(s));})()");
+    await send('Page.reload');await waitFor("!!window.KiriLighting&&!document.getElementById('continue-game').disabled");await click('#continue-game');
+    await travel('to-town','town');await drain();assert.ok((await saved()).seen.includes('town-arrival'));
+    await travel('to-shrine','shrine');await drain();assert.ok((await saved()).seen.includes('shrine-arrival'));assert.match(await evaluate("document.getElementById('objective-text').textContent"),/绘马/);
+    await object('purification');await click('#phase-button');await click('#object-purification');await waitFor("!document.getElementById('dialogue').hidden");assert.equal(await evaluate("document.getElementById('chapter-splash').hidden"),true,'Scene title never overlaps dialogue');await evaluate("document.getElementById('dialogue-skip').click()");assert.match(await evaluate("document.getElementById('dialogue-text').textContent"),/两张挤在一起的脸/);await screenshot('preview-shrine-echo-story.png');await drain();
+    await travel('to-town','town');await drain();await travel('to-shrine','shrine');assert.equal(await evaluate("document.getElementById('dialogue').hidden"),true,'Arrival narration plays once');
+    await click('#journal-button');await screenshot('preview-opening-journal.png');await click('#modal-close');
+    assert.deepEqual(errors,[]);console.log('Physical station-town-shrine exits, one-time narration, echo scenery and opening journal passed');await send('Browser.close');return;
+  }
+  if(process.argv.includes('--ground-cache-review')){
+    const probe=`root.__groundProbe=function(zone,size,ox,oy){view.tile=size;const m=root.KiriMaps.maps[zone],w=1100,h=605,a=document.createElement('canvas'),b=document.createElement('canvas');a.width=b.width=w;a.height=b.height=h;const p=a.getContext('2d'),q=b.getContext('2d');for(const pen of [p,q]){pen.imageSmoothingEnabled=false;pen.fillStyle='#07151d';pen.fillRect(0,0,w,h);}
+      for(let y=Math.max(0,Math.floor(oy/size));y<Math.min(m.h,Math.ceil((oy+h)/size));y++)for(let x=Math.max(0,Math.floor(ox/size));x<Math.min(m.w,Math.ceil((ox+w)/size));x++){const i=y*m.w+x,px=x*size-ox,py=y*size-oy,building=buildingAt(m,x,y);texture(p,building?m.floor:m.tiles[i],px,py,size,building?'grass':groundMaterial(m,i),ox,oy);blendEdge(p,m,x,y,px,py);fineWear(p,m,x,y,px,py);if(m.materials[i]!=='object'&&y>0&&[17,21,22,25,28].includes(m.tiles[(y-1)*m.w+x])){const g=p.createLinearGradient(0,py,0,py+size*.5);g.addColorStop(0,'rgba(5,15,23,.32)');g.addColorStop(1,'rgba(5,15,23,0)');p.fillStyle=g;p.fillRect(px,py,size,size*.5);}}
+      drawShrineEdges(p,m,size,ox,oy);drawTatami(p,m,size,ox,oy);drawPlatform(p,m,size,ox,oy);q.drawImage(bakeGround(m,size),-ox,-oy);const aa=p.getImageData(0,0,w,h).data,bb=q.getImageData(0,0,w,h).data;let changed=0,max=0,worst=[];for(let i=0;i<aa.length;i+=4){let d=0;for(let k=0;k<3;k++)d=Math.max(d,Math.abs(aa[i+k]-bb[i+k]));if(d>2)changed++;if(d>max){max=d;worst=[i/4%w,Math.floor(i/4/w),...aa.slice(i,i+3),...bb.slice(i,i+3)];}}return {zone,size,ox,oy,changed,max,worst,cacheCount:groundCache.size};};`;
+    const source=fs.readFileSync(path.join(ROOT,'world.js'),'utf8').replace('root.KiriRenderer =',probe+'root.KiriRenderer =');await evaluate(source);await waitFor('KiriRenderer.assetsReady()');
+    const report=await evaluate("[32,48].flatMap(size=>['station','town','shrine','archive','tower','river','station-office','town-workshop'].flatMap(zone=>[[0,0],[101,241]].map(([x,y])=>__groundProbe(zone,size,x,y))))");assert.ok(report.every(r=>r.changed===0&&r.cacheCount<=4),'Cached ground preserves the directly rendered material');console.log(JSON.stringify(report));fs.writeFileSync(path.join(ROOT,'tests/ground-cache-report.json'),JSON.stringify(report,null,2));await send('Browser.close');return;
+  }
   if(process.argv.includes('--hand-lamp-preview')){
     for(const mode of ['missing','unlit','ember','flame']){
       await send('Page.navigate',{url:base});await waitFor('!!window.KiriLighting&&!!window.KiriCore');
@@ -337,8 +354,9 @@ async function main() {
   assert.equal(await evaluate("KiriMaps.walkable('station',23,13,JSON.parse(localStorage.getItem('kiriakari.save.v1')).solved)"),true);
   results.push('Station clue and memory, wrong answer recovery, date lock');
   console.log('Station passed');
-  await click('#object-to-town'); await waitFor("document.getElementById('zone-name').textContent === '灯见街'"); await pause(100);
-  await object('nagi', true, 1); assert.equal(!!(await saved()).flags.helpedNagi, false); await object('nagi');
+  await click('#object-to-town'); await waitFor("document.getElementById('zone-name').textContent === '灯见街'"); await pause(450);await drain();
+  assert.ok((await saved()).seen.includes('town-arrival'));
+  await object('nagi', true, 1); assert.equal(!!(await saved()).flags.helpedNagi, false);assert.match(await evaluate("document.getElementById('objective-text').textContent"),/神社/); await object('nagi');
   assert.equal((await saved()).flags.parcelDelivered,true);assert.ok((await saved()).items.includes('routeCard'));
   await object('nagi');assert.equal(!!(await saved()).flags.helpedNagi,false);
   if((await saved()).phase==='echo')await click('#phase-button');await object('basket');assert.equal((await saved()).items.includes('redThread'),false);
@@ -368,7 +386,9 @@ async function main() {
   })()`),true,'Flowers sort by their roots, attached crane follows the wall, and depth crosses smoothly at the wall baseline');
   results.push('Unified wall, eave, buffer, flower and actor occlusion; HUD above scene');await object('crane');
   assert.equal((await saved()).flags.helpedNagi, true);
-  await map('shrine'); await object('mural'); await object('lanterns', false);
+  await map('shrine');assert.ok((await saved()).seen.includes('shrine-arrival'));
+  await click('#object-purification');await waitFor("!document.getElementById('dialogue').hidden");await evaluate("document.getElementById('dialogue-skip').click()");assert.match(await evaluate("document.getElementById('dialogue-text').textContent"),/两张挤在一起的脸/);await drain();
+  await object('mural'); await object('lanterns', false);
   for (const symbol of ['moon', 'mountain', 'river', 'boat']) await click(`[data-lantern="${symbol}"]`);
   await click('#puzzle-check'); await drain(); assert.equal((await saved()).solved.length, 2);
   await pause(4300); await screenshot('preview-shrine.png');

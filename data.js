@@ -110,7 +110,13 @@
     zone.spawn = root.KiriMaps.maps[id].spawn;
     zone.objects.forEach(object => { [object.x, object.y] = positions[id][object.id]; });
   });
-  root.KiriData = { zones, clues, memories, endings,
+  const sceneryEcho={
+    'shrine-water':'回忆里的水面映着两张挤在一起的脸。姐姐托住你的手，把竹勺里的水慢慢倒下。\n「不着急，走到这里，先歇一歇。」绘马架那边传来纸牌轻碰的声音。',
+    'shrine-guardian':'红围布在旧日的风里鲜亮起来。围布一角缝着歪歪的针脚——那是你第一次学针线，姐姐没有替你拆掉。',
+    'shrine-hokora':'小祠前的空碟里多了一小块米饼。姐姐把饼分成两半，较大的那一块留在你的掌心。\n那时你以为，姐姐总是不饿的。',
+    'shrine-fortunes':'一张旧签在绳上轻轻翻面：「愿归舟的人，都找到回家的路。」背面画着月、山、流水和小船。\n绘马上的歌谣，或许写着这些图案的先后。'
+  };
+  root.KiriData = { zones, clues, memories, endings,sceneryEcho,
     characters: { mio: { name: '澪', portrait: 0 }, shiori: { name: '栞', portrait: 1 }, ren: { name: '莲', portrait: 2 }, nagi: { name: '凪婆婆', portrait: 3 } },
     puzzleNames: { station: '没有日期的车票', shrine: '归舟灯阵', archive: '祭典之夜', tower: '第十三次钟声' },
     hints: {

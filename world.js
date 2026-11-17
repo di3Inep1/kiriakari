@@ -305,7 +305,7 @@
   // Textures are anchored to world coordinates, so we bake at origin (0,0) and translate on blit.
   function bakeGround(map,size){
     const key=groundCacheKey(map,size),hit=groundCache.get(key);
-    if(hit)return hit;
+    if(hit){groundCache.delete(key);groundCache.set(key,hit);return hit;}
     const canvas=document.createElement('canvas');canvas.width=map.w*size;canvas.height=map.h*size;
     const pen=canvas.getContext('2d');pen.imageSmoothingEnabled=false;
     for(let y=0;y<map.h;y++)for(let x=0;x<map.w;x++){
@@ -320,7 +320,9 @@
       }
     }
     drawShrineEdges(pen,map,size,0,0);drawTatami(pen,map,size,0,0);drawPlatform(pen,map,size,0,0);
-    groundCache.set(key,canvas);return canvas;
+    // Keep recent scenes warm without retaining every desktop/mobile map bitmap.
+    for(const oldKey of groundCache.keys())if(oldKey.startsWith(map.id+'|'+size+'|'))groundCache.delete(oldKey);
+    groundCache.set(key,canvas);while(groundCache.size>4)groundCache.delete(groundCache.keys().next().value);return canvas;
   }
   // The water shimmer (tiles 6/7) is the only animated part of the ground layer.
   function drawWater(pen,map,time,originX,originY){
