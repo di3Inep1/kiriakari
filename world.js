@@ -30,6 +30,7 @@
   const pavingCache=new Map(), contextPatterns=new WeakMap();
   const timberCache=new Map();
   const quietFloorCache=new Map();
+  const groundCache=new Map(), waterCache=new WeakMap();
   function quietFloorUnit(material,size){
     const key=material+':'+size+':'+floorGrains.naturalWidth;if(quietFloorCache.has(key))return quietFloorCache.get(key);
     const wood=material==='library-wood',unit=document.createElement('canvas');unit.width=size*(wood?6:4);unit.height=size*(wood?1:2);const p=unit.getContext('2d');p.imageSmoothingEnabled=false;
@@ -52,7 +53,8 @@
   function project(point) { return { x: Math.round((point.x + .5 - view.x) * view.tile), y: Math.round((point.y + .92 - view.y) * view.tile) }; }
   function unproject(x, y) { return { x: Math.floor(x / view.tile + view.x), y: Math.floor(y / view.tile + view.y) }; }
   function pavingUnit(size) {
-    if(pavingCache.has(size)) return pavingCache.get(size);
+    const key=size+':'+(stoneGrain.complete&&stoneGrain.naturalWidth?1:0);
+    if(pavingCache.has(key)) return pavingCache.get(key);
     const bw=Math.max(4,Math.round(size/3)),bh=Math.max(3,Math.round(size/4));
     const unit=document.createElement('canvas');unit.width=bw*2;unit.height=bh*2;
     const pen=unit.getContext('2d');pen.imageSmoothingEnabled=false;pen.fillStyle='#46534f';pen.fillRect(0,0,unit.width,unit.height);
@@ -66,10 +68,11 @@
       pen.fillStyle='rgba(224,229,211,.12)';pen.fillRect(x+1,y+1,bw-1,1);
       pen.fillStyle='rgba(24,39,36,.16)';pen.fillRect(x+1,y+bh-1,bw-1,1);
     }
-    pavingCache.set(size,unit);return unit;
+    pavingCache.set(key,unit);return unit;
   }
   function timberUnit(size){
-    if(timberCache.has(size))return timberCache.get(size);
+    const key=size+':'+(woodGrain.complete&&woodGrain.naturalWidth?1:0);
+    if(timberCache.has(key))return timberCache.get(key);
     const plank=size*3,row=Math.max(3,Math.round(size/4)),unit=document.createElement('canvas');unit.width=plank*2;unit.height=row*2;
     const pen=unit.getContext('2d');pen.imageSmoothingEnabled=false;pen.fillStyle='#493c34';pen.fillRect(0,0,unit.width,unit.height);
     for(let r=0;r<2;r++)for(let c=-1;c<3;c++){
@@ -78,7 +81,7 @@
       pen.drawImage(woodGrain,0,0,woodGrain.naturalWidth,woodGrain.naturalHeight,x+1,y+1,plank-1,row-1);pen.globalAlpha=1;
       pen.fillStyle='rgba(237,217,190,.07)';pen.fillRect(x+1,y+1,plank-1,1);
     }
-    timberCache.set(size,unit);return unit;
+    timberCache.set(key,unit);return unit;
   }
   function groundMaterial(map,index){
     if(map.id==='shrine'&&map.materials[index]==='stone')return 'shrine-stone';
@@ -132,7 +135,7 @@
     const inset=material==='object'?1:2;
     pen.drawImage(source,(id%columns)*sw+inset,Math.floor(id/columns)*sh+inset,sw-inset*2,sh-inset*2,x,y,size,size);
   }
-  function blendEdge(map,x,y,px,py) {
+  function blendEdge(pen,map,x,y,px,py) {
     if(map.id==='shrine')return; // The shrine uses a continuous two-sided moss fringe below.
     const index=y*map.w+x, material=map.materials[index], size=view.tile;
     if(material!=='stone'&&material!=='dirt') return;
@@ -140,11 +143,11 @@
       const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=map.w||ny>=map.h) return;
       const i=ny*map.w+nx;
       if(map.materials[i]!=='grass') return;
-      ctx.save();ctx.translate(px,py);ctx.translate(size/2,size/2);ctx.rotate(side*Math.PI/2);ctx.translate(-size/2,-size/2);
-      ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(size,0);
-      for(let n=8;n>=0;n--) ctx.lineTo(n*size/8,size*(.035+((x*7+y*11+n*13)%5)*.008));
-      ctx.closePath();ctx.clip();ctx.translate(size/2,size/2);ctx.rotate(-side*Math.PI/2);ctx.translate(-size/2,-size/2);
-      texture(ctx,map.tiles[i],0,0,size,'grass');ctx.restore();
+      pen.save();pen.translate(px,py);pen.translate(size/2,size/2);pen.rotate(side*Math.PI/2);pen.translate(-size/2,-size/2);
+      pen.beginPath();pen.moveTo(0,0);pen.lineTo(size,0);
+      for(let n=8;n>=0;n--) pen.lineTo(n*size/8,size*(.035+((x*7+y*11+n*13)%5)*.008));
+      pen.closePath();pen.clip();pen.translate(size/2,size/2);pen.rotate(-side*Math.PI/2);pen.translate(-size/2,-size/2);
+      texture(pen,map.tiles[i],0,0,size,'grass');pen.restore();
     });
   }
   function drawShrineEdges(pen,map,size,originX=0,originY=0){
@@ -161,13 +164,13 @@
       });
     }
   }
-  function fineWear(map,x,y,px,py) {
+  function fineWear(pen,map,x,y,px,py) {
     const material=map.materials[y*map.w+x],r=root.KiriScenery.hash(x,y,91);
     if(!['stone','slate','wood'].includes(material)||r>.045||map.solids[y*map.w+x]) return;
     const size=view.tile,fx=px+size*(.27+root.KiriScenery.hash(x,y,92)*.4),fy=py+size*(.32+root.KiriScenery.hash(x,y,93)*.32);
     // Small low-contrast scratches cover only a few pixels of an occasional tile.
-    ctx.strokeStyle='rgba(13,30,33,.12)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(fx,fy);
-    ctx.lineTo(fx+size*.075,fy+size*.025);ctx.lineTo(fx+size*.12,fy-size*.02);ctx.stroke();
+    pen.strokeStyle='rgba(13,30,33,.12)';pen.lineWidth=1;pen.beginPath();pen.moveTo(fx,fy);
+    pen.lineTo(fx+size*.075,fy+size*.025);pen.lineTo(fx+size*.12,fy-size*.02);pen.stroke();
   }
   function propFrame(prop,solved=[],progress={}){
     if(prop.atlas==='items'){const size=view.tile===32?12:16;return {source:nativeItems[size],sprite:prop.sprite,native:true,nativeItem:true,rect:{x:prop.sprite%4*size,y:Math.floor(prop.sprite/4)*size,w:size,h:size}};}
@@ -292,6 +295,43 @@
     }
     buildingNodes.forEach(({b,node})=>{node.style.left=Math.round((b.x-.6-view.x)*size)+'px';node.style.top=Math.round((b.y-.1-view.y)*size)+'px';});
   }
+  function groundCacheKey(map,size){
+    const ready=img=>!!(img&&img.complete&&img.naturalWidth);
+    return [map.id,size,ready(image),ready(stoneGrain),ready(woodGrain),ready(floorGrains),ready(stationKit),ready(tatamiImage),ready(shrinePaving[size]),ready(shrineFringe[size])].join('|');
+  }
+  // The static ground is baked once per zone and tile size, then blitted whole each frame.
+  // Textures are anchored to world coordinates, so we bake at origin (0,0) and translate on blit.
+  function bakeGround(map,size){
+    const key=groundCacheKey(map,size),hit=groundCache.get(key);
+    if(hit)return hit;
+    const canvas=document.createElement('canvas');canvas.width=map.w*size;canvas.height=map.h*size;
+    const pen=canvas.getContext('2d');pen.imageSmoothingEnabled=false;
+    for(let y=0;y<map.h;y++)for(let x=0;x<map.w;x++){
+      const idx=y*map.w+x,id=map.tiles[idx],px=x*size,py=y*size;
+      const building=buildingAt(map,x,y);
+      texture(pen,building?map.floor:id,px,py,size,building?'grass':groundMaterial(map,idx),0,0);
+      blendEdge(pen,map,x,y,px,py);
+      fineWear(pen,map,x,y,px,py);
+      if(map.materials[idx]!=='object'&&y>0&&[17,21,22,25,28].includes(map.tiles[(y-1)*map.w+x])){
+        const shade=pen.createLinearGradient(0,py,0,py+size*.5);shade.addColorStop(0,'rgba(5,15,23,.32)');shade.addColorStop(1,'rgba(5,15,23,0)');
+        pen.fillStyle=shade;pen.fillRect(px,py,size,size*.5);
+      }
+    }
+    drawShrineEdges(pen,map,size,0,0);drawTatami(pen,map,size,0,0);drawPlatform(pen,map,size,0,0);
+    groundCache.set(key,canvas);return canvas;
+  }
+  // The water shimmer (tiles 6/7) is the only animated part of the ground layer.
+  function drawWater(pen,map,time,originX,originY){
+    let tiles=waterCache.get(map);
+    if(!tiles){tiles=[];map.tiles.forEach((id,i)=>{if(id===6||id===7)tiles.push({x:i%map.w,y:Math.floor(i/map.w)});});waterCache.set(map,tiles);}
+    const x0=Math.max(0,Math.floor(view.x)),x1=Math.min(map.w,Math.ceil(view.x+view.width/view.tile));
+    const y0=Math.max(0,Math.floor(view.y)),y1=Math.min(map.h,Math.ceil(view.y+view.height/view.tile));
+    for(const w of tiles){
+      if(w.x<x0||w.x>=x1||w.y<y0||w.y>=y1)continue;
+      pen.fillStyle=`rgba(102,183,206,${.04+Math.sin(time*.0015+w.x*.7+w.y*.3)*.035})`;
+      pen.fillRect(w.x*view.tile-originX,w.y*view.tile-originY,view.tile,view.tile);
+    }
+  }
   function draw(zone, player, time, phase,solved=[],progress={}) {
     const map = root.KiriMaps.maps[zone]; view.zone = zone;
     const cols = view.width / view.tile, rows = view.height / view.tile;
@@ -301,22 +341,8 @@
     view.x=originX/view.tile;view.y=originY/view.tile;
     ctx.fillStyle = '#07151d'; ctx.fillRect(0, 0, view.width, view.height);
     if (!image.complete || !image.naturalWidth) return;
-    for (let y = Math.max(0, Math.floor(view.y)); y < Math.min(map.h, Math.ceil(view.y + rows)); y++) {
-      for (let x = Math.max(0, Math.floor(view.x)); x < Math.min(map.w, Math.ceil(view.x + cols)); x++) {
-        const id = map.tiles[y * map.w + x];
-        const px=x*view.tile-originX,py=y*view.tile-originY;
-        const building=buildingAt(map,x,y);
-        texture(ctx,building?map.floor:id,px,py,view.tile,building?'grass':groundMaterial(map,y*map.w+x),originX,originY);
-        blendEdge(map,x,y,px,py);
-        fineWear(map,x,y,px,py);
-        if(map.materials[y*map.w+x]!=='object'&&y>0&&[17,21,22,25,28].includes(map.tiles[(y-1)*map.w+x])) {
-          const shade=ctx.createLinearGradient(0,py,0,py+view.tile*.5);shade.addColorStop(0,'rgba(5,15,23,.32)');shade.addColorStop(1,'rgba(5,15,23,0)');
-          ctx.fillStyle=shade;ctx.fillRect(px,py,view.tile,view.tile*.5);
-        }
-        if (id === 6 || id === 7) { ctx.fillStyle = `rgba(102,183,206,${.04 + Math.sin(time * .0015 + x * .7 + y * .3) * .035})`; ctx.fillRect(px, py, view.tile, view.tile); }
-      }
-    }
-    drawShrineEdges(ctx,map,view.tile,originX,originY);drawTatami(ctx,map,view.tile,originX,originY);drawPlatform(ctx,map,view.tile,originX,originY);
+    ctx.drawImage(bakeGround(map, view.tile), -originX, -originY);
+    drawWater(ctx, map, time, originX, originY);
     ctx.fillStyle = phase === 'echo' ? 'rgba(226,210,174,.07)' : 'rgba(5,22,38,.22)'; ctx.fillRect(0, 0, view.width, view.height);
     map.lights.forEach(({x,y})=>{
       const p = project({ x, y: y - .35 }), radius = view.tile * 1.7;
