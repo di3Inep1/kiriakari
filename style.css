@@ -79,6 +79,11 @@
 .player .sprite{z-index:1}
 .player .player-lantern{width:calc(var(--tile-size)*.32);height:calc(var(--tile-size)*.43);right:auto;bottom:auto;background:url('assets/guide-lantern.png') center/100% 100% no-repeat;border-radius:0;box-shadow:none;z-index:2;transform:translate(-50%,-55%) rotate(var(--lamp-angle,0deg));transform-origin:50% 13%;image-rendering:pixelated;filter:drop-shadow(0 0 2px #ffdaa052)}
 .player .player-lantern[data-behind=true]{z-index:0;filter:brightness(.85)}
+.player.carrying .player-lantern{display:block;filter:none;background-repeat:no-repeat;overflow:visible}
+.player .player-lantern::before{content:'';position:absolute;left:50%;top:70%;width:calc(var(--tile-size)*1.1);height:calc(var(--tile-size)*1.1);transform:translate(-50%,-50%) scale(var(--lamp-bloom,1));background:radial-gradient(ellipse,#ffd18a4a 0%,#f9b3541f 35%,#ef9e3600 70%);opacity:var(--lamp-glow,0);pointer-events:none;z-index:-1}
+.player .player-lantern[data-lamp-state=unlit]{filter:none}
+.player .player-lantern[data-lamp-state=ember]{filter:drop-shadow(0 0 1px #d36b301a)}
+.player .player-lantern[data-behind=true]{z-index:0;filter:brightness(.85)}
 .world.echo #tile-map,.world.echo .building-sprite{filter:saturate(.45) sepia(.45) contrast(.92) brightness(1.06)}
 #tile-map,.building-sprite{transition:filter .65s ease}
 .world.echo .scenery-art{filter:brightness(.95) saturate(.43) sepia(.43)}

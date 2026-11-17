@@ -109,6 +109,16 @@ for(const tile of [32,48]){
   }
   fs.writeFileSync(path.join(root,'assets/shrine-fringe-native-'+tile+'.png'),encode(width,height,edgePixels));
 }
+// Hand lantern states share a crop and scale so the handle never jumps on switch.
+const handLamp={...decode(path.join(root,'assets/guide-lantern-states.png')),cols:5,rows:1},handCrop=bounds(handLamp,[0,1,2,3,4]);
+for(const [tile,w,h] of [[32,10,14],[48,16,22]]){
+  const pixels=Buffer.alloc(w*5*h*4),fit=F.fitArt(w,h,handCrop.w,handCrop.h,true),dw=Math.round(fit.w),dh=Math.round(fit.h),ox=Math.floor((w-dw)/2),oy=Math.floor((h-dh)/2);
+  for(let sprite=0;sprite<5;sprite++){const f=frame(handLamp,sprite);for(let y=0;y<dh;y++)for(let x=0;x<dw;x++){
+    const sx=f.x+handCrop.x+Math.min(handCrop.w-1,Math.floor((x+.5)*handCrop.w/dw)),sy=f.y+handCrop.y+Math.min(handCrop.h-1,Math.floor((y+.5)*handCrop.h/dh));
+    handLamp.pixels.copy(pixels,((y+oy)*w*5+sprite*w+x+ox)*4,(sy*handLamp.width+sx)*4,(sy*handLamp.width+sx)*4+4);
+  }}
+  fs.writeFileSync(path.join(root,'assets/guide-lantern-states-native-'+tile+'.png'),encode(w*5,h,pixels));
+}
 // Inventory UI and the loose memory photo also use prepared pixel rectangles.
 const icons={...decode(path.join(root,'assets/inventory-items.png')),cols:4,rows:3};
 for(const size of [12,16,48]){

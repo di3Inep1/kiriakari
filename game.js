@@ -102,6 +102,7 @@
     $('zone-name').textContent = zone.name; $('zone-reading').textContent = zone.reading; $('zone-sub').textContent = zone.sub;
     syncPhaseControls();
     $('player').classList.toggle('lit', !!state.flags.lantern);
+    $('player').classList.toggle('carrying',!!state.flags.lampFound||!!state.flags.lantern);
     const container = $('objects'); container.replaceChildren();
     visibleObjects().forEach(obj => {
       const el = document.createElement('button'); el.type = 'button';
@@ -130,6 +131,7 @@
     const lamp=KiriLighting.pose(state.player.facing,walking,performance.now(),reducedMotion),lampNode=player.querySelector('.player-lantern'),size=R.view.tile;
     lampNode.style.left=`calc(50% + ${lamp.x*size}px)`;lampNode.style.top=`calc(100% + ${lamp.y*size}px)`;
     lampNode.style.setProperty('--lamp-angle',lamp.angle+'deg');lampNode.dataset.behind=String(lamp.behind);
+    KiriLighting.hand(lampNode,{found:!!state.flags.lampFound||!!state.flags.lantern,lit:!!state.flags.lantern,phase:state.phase,time:performance.now(),tile:size,reduced:reducedMotion});
     lanternPoint={x:point.x+lamp.x*size,y:point.y+lamp.y*size};
     const frame=walking?motion.frame:1;
     player.querySelector('.sprite').style.backgroundPosition = `${walkSheetReady?frame*50:0}% ${state.player.facing * 100 / 3}%`;

@@ -109,6 +109,23 @@ async function main() {
   await evaluate("Promise.all([...document.images].map(i=>i.decode().catch(()=>{})))"); await pause(700);
   await screenshot('preview-title.png');
   console.log('Title screenshot captured');
+  if(process.argv.includes('--hand-lamp-preview')){
+    for(const mode of ['missing','unlit','ember','flame']){
+      await send('Page.navigate',{url:base});await waitFor('!!window.KiriLighting&&!!window.KiriCore');
+      await evaluate(`(()=>{const s=KiriCore.newGame();s.zone='station-office';s.player={x:7,y:8,facing:0};if(${JSON.stringify(mode)}!=='missing'){s.flags.lampFound=true;KiriCore.giveItem(s,'guideLamp');}if(['ember','flame'].includes(${JSON.stringify(mode)}))s.flags.lantern=true;s.phase=${JSON.stringify(mode==='flame'?'echo':'present')};localStorage.setItem('kiriakari.save.v1',JSON.stringify(s));})()`);
+      await send('Page.reload');await waitFor("!!window.KiriLighting&&!document.getElementById('continue-game').disabled");await click('#continue-game');await waitFor('KiriRenderer.assetsReady()');await pause(650);
+      assert.equal(await evaluate("document.querySelector('.player-lantern').hidden"),mode==='missing');
+      if(mode!=='missing'){assert.equal(await evaluate("document.querySelector('.player-lantern').dataset.lampState"),mode);assert.equal(await evaluate("document.querySelector('.player-lantern').getBoundingClientRect().width<19"),true);}
+      await screenshot('preview-hand-lamp-'+mode+'.png');
+      if(mode!=='missing'){const clip=await evaluate("(()=>{const r=document.getElementById('player').getBoundingClientRect();return {x:r.x-45,y:r.y-35,width:140,height:120,scale:3};})()");await screenshot('preview-hand-lamp-'+mode+'-detail.png',clip);}
+    }
+    const frames=new Set();for(let i=0;i<7;i++){frames.add(await evaluate("document.querySelector('.player-lantern').dataset.lampFrame"));await pause(100);}assert.ok(frames.size>=2,'The flame animates');
+    await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await pause(200);assert.equal(await evaluate("document.querySelector('.player-lantern').dataset.lampFrame"),'2');
+    await click('#phase-button');await pause(400);assert.equal(await evaluate("document.querySelector('.player-lantern').dataset.lampState"),'ember');assert.equal(await evaluate("document.querySelector('.player-lantern').dataset.lampFrame"),'1');
+    await click('#phase-button');await pause(400);assert.equal(await evaluate("document.querySelector('.player-lantern').dataset.lampState"),'flame');
+    await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await waitFor('KiriRenderer.view.tile===32');await pause(300);assert.equal(await evaluate("document.querySelector('.player-lantern').style.width"),'10px');assert.equal(await evaluate("document.querySelector('.player-lantern').style.height"),'14px');await screenshot('preview-hand-lamp-mobile.png');
+    assert.deepEqual(errors,[]);console.log('Missing, unlit, ember, active flame, phase switching, reduced motion and mobile native pixels passed');await send('Browser.close');return;
+  }
   if(process.argv.includes('--pickup-glints-only')){
     await evaluate(`(()=>{const s=KiriCore.newGame();s.zone='station-office';s.player={x:7,y:8,facing:3};localStorage.setItem('kiriakari.save.v1',JSON.stringify(s));})()`);
     await send('Page.reload');await waitFor("!!window.KiriExploration && !document.getElementById('continue-game').disabled");await click('#continue-game');

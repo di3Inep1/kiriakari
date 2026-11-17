@@ -1,7 +1,22 @@
 /* Light, depth fog and a restrained photographic memory atmosphere. */
 (function(root){
   'use strict';
-  const lanternImage=new Image();lanternImage.src='assets/guide-lantern.png';
+  const handSheets={};for(const size of [32,48]){const img=new Image();img.src='assets/guide-lantern-states-native-'+size+'.png';handSheets[size]=img;}
+  const handStates=new WeakMap();
+  function hand(node,{found,lit,phase,time,tile,reduced}){
+    const mode=!lit?'unlit':phase==='echo'?'flame':'ember',prior=handStates.get(node);
+    let state=prior;if(!state||state.mode!==mode){state={mode,at:time,from:prior?.mode==='unlit'&&mode==='ember'?1:prior?.gain??(mode==='flame'?1:mode==='ember'?.06:0),gain:0};handStates.set(node,state);}
+    const age=reduced?1:Math.min(1,Math.max(0,(time-state.at)/300)),target=mode==='flame'?1:mode==='ember'?.06:0;
+    const gain=state.from+(target-state.from)*(age*age*(3-2*age));state.gain=gain;
+    const active=mode==='flame'||mode==='ember'&&age<1&&gain>.18;
+    const frame=active?2+(reduced?0:Math.floor(time/140)%3):mode==='ember'?1:0;
+    const width=tile===32?10:16,height=tile===32?14:22;
+    node.hidden=!found;node.dataset.lampState=mode;node.dataset.lampFrame=String(frame);
+    node.style.width=width+'px';node.style.height=height+'px';node.style.backgroundImage=`url('${handSheets[tile].src}')`;
+    node.style.backgroundSize=width*5+'px '+height+'px';node.style.backgroundPosition=-frame*width+'px 0';
+    node.style.setProperty('--lamp-glow',String(lit?gain:0));
+    node.style.setProperty('--lamp-bloom',String(reduced?1:1+Math.sin(time*.004)*.035+(mode==='flame'&&age<1?Math.sin(age*Math.PI)*.12:0)));
+  }
   let phase=null,phaseAt=-10000,lastTime=0,mix=0,fogCanvas,grain;
   // Anchored to the carrying hand, including the hidden far hand when facing north.
   function pose(facing,walking,time,reduced=false){
@@ -29,7 +44,7 @@
     // A warm pool sits on the ground; it remains when decorative particles are off.
     if(lit){
       pen.save();pen.translate(point.x+tile*.12,point.y-tile*.04);pen.scale(1,.43);pen.globalCompositeOperation='screen';
-      radial(pen,0,0,tile*(1.55+mix*.35),`rgba(250,182,84,${.15+mix*.07})`,'rgba(250,182,84,0)');pen.restore();
+      radial(pen,0,0,tile*(1.55+mix*.35),`rgba(250,182,84,${(.15+mix*.07)*(.08+.92*mix)})`,'rgba(250,182,84,0)');pen.restore();
     }
     if(mix>.003){
       // Low-resolution translucent fog, cleared around the lantern instead of hiding exits.
@@ -58,7 +73,7 @@
     if(lit){
       pen.save();pen.globalCompositeOperation='screen';
       const breath=reduced?1:1+Math.sin(t*.003)*.035;
-      radial(pen,focus.x,focus.y,tile*.78*breath,`rgba(255,209,126,${.18+mix*.08})`,'rgba(255,209,126,0)');pen.restore();
+      radial(pen,focus.x,focus.y,tile*.78*breath,`rgba(255,209,126,${(.18+mix*.08)*(.08+.92*mix)})`,'rgba(255,209,126,0)');pen.restore();
     }
     if(particles&&!reduced){
       for(let i=0;i<(mix>.1?26:12);i++){
@@ -79,5 +94,5 @@
     }
     pen.restore();
   }
-  root.KiriLighting={pose,paint,assetsReady:()=>lanternImage.complete&&lanternImage.naturalWidth>0};
+  root.KiriLighting={pose,paint,hand,assetsReady:()=>Object.values(handSheets).every(img=>img.complete&&img.naturalWidth>0)};
 })(globalThis);
